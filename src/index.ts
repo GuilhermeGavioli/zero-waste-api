@@ -5,6 +5,21 @@ require('dotenv').config();
 const MAX_REQUEST_SIZE = 1024;
 
 
+import { Mongo } from './Database/Mongo';
+import { RedisMock } from './Database/Redis/mock';
+
+export const mongo = new Mongo();
+export const redis = new RedisMock();
+
+import {AppointmentCache, OrderCache, OngCache, InMemoryCounter} from './Cache/index'
+export const inMemoryCounter = new InMemoryCounter();
+export const appointmentCache = new AppointmentCache(inMemoryCounter)
+export const orderCache = new OrderCache(inMemoryCounter)
+export const ongCache = new OngCache(inMemoryCounter)
+
+
+
+
 createServer(async (req: IncomingMessage, res: ServerResponse) => {
     
     res.setHeader('Access-Control-Allow-Origin', `${process.env.ORIGIN}`);
