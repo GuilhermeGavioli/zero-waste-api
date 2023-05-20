@@ -1,6 +1,10 @@
 import { IncomingMessage, ServerResponse, createServer  } from 'node:http'
+import path from 'node:path'
 import url from 'node:url'
+import querystring from 'node:querystring'
 require('dotenv').config();
+
+
 
 const MAX_REQUEST_SIZE = 1024;
 
@@ -12,6 +16,8 @@ export const mongo = new Mongo();
 export const redis = new RedisMock();
 
 import {AppointmentCache, OrderCache, OngCache, InMemoryCounter} from './Cache/index'
+import { POST } from './Routes/POST';
+import { GET } from './Routes/GET';
 export const inMemoryCounter = new InMemoryCounter();
 export const appointmentCache = new AppointmentCache(inMemoryCounter)
 export const orderCache = new OrderCache(inMemoryCounter)
@@ -32,8 +38,10 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
         return res.end('No url specified in request');
     }
     const parsedUrl = url.parse(req.url);
+    const xForwardedFor = req.headers['x-forwarded-for'];
+    // console.log('ipaddress: ' + xForwardedFor)
     const URL = parsedUrl.pathname;
-
+    console.log(URL)
 
     if (METHOD === 'POST') {
         const contentLength = req.headers['content-length']
@@ -49,12 +57,23 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
                 console.log('no body provided')
                 return res.end('No body provided')
             } else {
-                
-       
+                if (URL === '/createorder') POST.createOrder(req, res, body);
+                else if (URL === '/makeappointment') POST.makeAppointment(req, res, body);
+                else if (URL === '/account/register/ONG') POST.registerOng(req, res, body);
+                else if (URL === '/account/register/user') POST.registerUser(req, res, body);
+                else if (URL === '/account/login/default') POST.loginZeroWaste(req, res, body);
+                else if (URL === '/account/resetpassword') POST.resetPassword(req, res, body);
+                else if (URL === '/testpost') {
+                    POST.testpost(req, res);
+                }
+                else {
                     console.log('route not found')
                     res.writeHead(405, {'Content-Type': 'text/plain'});
                     return res.end('Route does not exist'); //TODO: 404 ADD PAGE
-                
+                }
+  
+                // else if (URL === '/donation/requestdonation') POST.requestDonation(req,res, body)
+                // else if (URL === '/donation/donate') POST.donate(req,res, body)
             }
         } catch (err) {
             console.log('catching' + err)
@@ -73,17 +92,54 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
         //     res.writeHead(403, {'Content-Type': 'text/plain'});
         //     return res.end('No need to specify data in the body');
         // }
-       
-         
+        if (URL === '/getFive') GET.getDonationsPack(req.url, res) // donations
+        else if (URL === '/get/favorites') GET.getFavorites(req, res)
+        else if (URL === '/testget') GET.testget(req, res)
+        else if (URL === '/oauth') GET.loginOAuth(req,res)
+        else if (URL === '/account/login/oauth/oauth2callback') GET.OAuthCallBack(req,res)
+        else if (URL === '/account/register/authentication/mfa') GET.registerValidation(req.url, res)
+        else if (URL === '/orders') GET.getSingleOrder(req, res)
+        else if (URL === '/profileinfo') GET.profile(req, res)
+        else if (URL === '/favorites') GET.addFavorite(req,res)
+        else if (URL === '/delete/favorites') GET.deleteFavorite(req,res)
+        else if (URL === '/likes') GET.likeOrder(req,res)
+        else if (URL === '/delete/likes') GET.unlikeOrder(req,res)
+        else if (URL === '/ongs') GET.getOng(req, res) // public
+        else if (URL === '/myorders') GET.getMyOrders(req, res) // public
+        else if (URL === '/getfiveongs') GET.getOngsPack(req.url, res) // donations
+        else if (URL === '/getFiveUsers') GET.getDonationsPack(req.url, res) // donations
+        else if (URL === '/mylikes') GET.getMyLikes(req, res)
+        else if (URL === '/mylikedposts') GET.getMyLikedPosts(req, res)
+        else if (URL === '/userswhodonatedtospecificorder') GET.userswhodonatedtospecificorder(req, res)
+        else if (URL === '/deleteappointment') GET.deleteAppointment(req, res)
+        else if (URL === '/confirmdonation') GET.confirmDonation(req, res);
+        else if (URL === '/filesystem') {
+            // const parsedUrl = url.parse(req.url);
+            // let resource: any;
+            // if (parsedUrl.query) {
+            //     const queryParams = querystring.parse(parsedUrl.query);
+            //     resource = queryParams.resource;
+            // }
+            // console.log(resource);
+            // const found = assets.find(el => { return el.name === resource })
+            // if (found) {
+            //     res.setHeader('Content-Type', 'image/png');
+            //     return res.end(found.data);   
+            // }
+            // res.setHeader('Content-Type', 'text/plain');
+            // return res.end('resource not found'); 
             
-        
-     
+        }
+        else {
             console.log('route not found')
             res.writeHead(403, {'Content-Type': 'text/plain'});
-            return res.end('Route does not exist');
-        
+            return res.end('Route does not exist'); //TODO: 404 ADD PAGE
+        }
         
     }
+
+    // res.end();
+    
 
     
 }).listen(process.env.PORT, () => console.log('Listening'))
