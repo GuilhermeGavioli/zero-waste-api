@@ -201,12 +201,12 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
     }
   }
   
-  async findAllCompanyOrders(data_object: any) { // max five
+  async findAllCompanyOrdersById(ong_id: string) { // max five
     try {
       // const query = [
       //   { $where: data_object }
       // ];
-      const docs = await this.order_collection?.find(data_object).toArray()
+      const docs = await this.order_collection?.find({owner: new ObjectId(ong_id) }).toArray()
 
       // const docs = await this.order_collection?.aggregate(query).toArray()
       if (!docs || docs?.length === 0) return {};

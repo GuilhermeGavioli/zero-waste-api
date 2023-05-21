@@ -49,14 +49,17 @@ export class RedisMock {
         }
     }
 
-    async storeFavorite(user: any, order: any) {
+    async storeFavorite(user_id: string, ong: {name: string, id: string}) {
         try {
             // this.favorites.push({ key: `user:${user}:likes:`, value: order })
-            order = {
-                _id: order._id,
-                name: order.name
+            const data = {
+                _id: user_id,
+                ong: {
+                    name: ong.name,
+                    id: ong.id
+                }
             }
-            this.favorites.push({ key: `user:${user}:likes:`, value: order })
+            this.favorites.push({ key: user_id, value: data })
             console.log('stored favorites' + JSON.stringify(this.favorites))
             return true;
         } catch (err) {
@@ -146,34 +149,34 @@ export class RedisMock {
         }
     }
 
-    async storeLikeIfNotFound(user_id: string, order_id: string) {
+    async storeLikeIfNotFound(user_id: string, ong_id: string) {
         const like = {
             user_id,
-            order_id,
+            ong_id,
         }
-        const foundLike = this.likes.find(l => (l.user_id === like.user_id && l.order_id === order_id))
+        const foundLike = this.likes.find(l => (l.user_id === like.user_id && l.ong_id === ong_id))
         if (!foundLike) {
             this.likes.push(like);
         }
     }
-    async deleteLikeIfFound(user_id: string, order_id: string) {
-        const like = {
-            user_id,
-            order_id,
-        }
-        this.likes = this.likes.filter(l => (l.user_id !== user_id && l.order_id !== order_id));
+    async deleteLikeIfFound(user_id: string, ong_id: string) {
+        this.likes = this.likes.filter(l => !(l.user_id === user_id && l.ong_id === ong_id));
+        console.log('deleted')
+        console.log(this.likes)
         
     }
-    async getLikesOfMultipleOrders(orders: any[]) { //FROM ORDER ID
+    async getLikesOfMultipleOngs(ongs: any[]) { //FROM ORDER ID
+        console.log(ongs)
         try {
-            const orderLikes = orders.reduce((acc, order) => {
-                const id = order._id.toString();
-                const count = this.likes.filter((like) => like.order_id.toString() === id).length;
+            const ongLikes = ongs.reduce((acc, ongs) => {
+                const id = ongs._id.toString();
+                const count = this.likes.filter((like) => like.ong_id.toString() === id).length;
                 acc[id] = count;
                 return acc;
               }, {});
-              console.log(orderLikes);
-              return orderLikes;
+              console.log('ongLikes');
+              console.log(ongLikes);
+              return ongLikes;
 
         } catch (err) {
             return [];

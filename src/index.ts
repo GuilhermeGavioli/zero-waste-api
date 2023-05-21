@@ -95,18 +95,20 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
         if (URL === '/getFive') GET.getDonationsPack(req.url, res) // donations
         else if (URL === '/get/favorites') GET.getFavorites(req, res)
         else if (URL === '/testget') GET.testget(req, res)
-        else if (URL === '/oauth') GET.loginOAuth(req,res)
-        else if (URL === '/account/login/oauth/oauth2callback') GET.OAuthCallBack(req,res)
+        // else if (URL === '/oauth') GET.loginOAuth(req,res)
+        // else if (URL === '/account/login/oauth/oauth2callback') GET.OAuthCallBack(req,res)
         else if (URL === '/account/register/authentication/mfa') GET.registerValidation(req.url, res)
         else if (URL === '/orders') GET.getSingleOrder(req, res)
         else if (URL === '/profileinfo') GET.profile(req, res)
-        else if (URL === '/favorites') GET.addFavorite(req,res)
+        // else if (URL === '/favorites') GET.addFavorite(req,res)
         else if (URL === '/delete/favorites') GET.deleteFavorite(req,res)
-        else if (URL === '/likes') GET.likeOrder(req,res)
-        else if (URL === '/delete/likes') GET.unlikeOrder(req,res)
+        else if (URL === '/like') GET.likeOrder(req,res)
+        else if (URL === '/unlike') GET.unlikeOrder(req,res)
         else if (URL === '/ongs') GET.getOng(req, res) // public
         else if (URL === '/myorders') GET.getMyOrders(req, res) // public
-        else if (URL === '/getfiveongs') GET.getOngsPack(req.url, res) // donations
+        else if (URL === '/gettenongs') GET.getOngsPack(req.url, res) // donations
+
+
         else if (URL === '/getFiveUsers') GET.getDonationsPack(req.url, res) // donations
         else if (URL === '/mylikes') GET.getMyLikes(req, res)
         else if (URL === '/mylikedposts') GET.getMyLikedPosts(req, res)

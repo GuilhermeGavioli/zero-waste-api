@@ -6,7 +6,7 @@ import { appointmentCache, mongo, orderCache, redis } from '../..';
 import { MyDate } from '../../Utils/MyDate';
 
 import { google } from 'googleapis';
-import { oauth2Client, scopes } from '../../OAuth/google'
+// import { oauth2Client, scopes } from '../../OAuth/google'
 import { AccessTokenVerification } from '../../Middlewares';
 import {cachedOngs, cachedOrderesForFavorites, cachedUsersWhoDonatedAndDonatedItems} from '../../Cache/index'
 import { ObjectId } from 'mongodb';
@@ -113,76 +113,7 @@ const getSingleOrder = async (req: IncomingMessage, res: ServerResponse) => {
 }
 
 
-const loginOAuth = async (req: IncomingMessage, res: ServerResponse) => { 
-    const url = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      scope: scopes,
-    });
-    console.log(url)
-    res.writeHead(303, { 'Location': url});
-    res.end();
-}
 
-const OAuthCallBack = async (req: IncomingMessage, res: ServerResponse) => {
-        let google_code : any;
-        if (req.url) {
-            const { code } = url.parse(req.url, true).query;
-            google_code = code;
-        }
-    
-        if (!google_code){
-            return res.end('no info provided or invalid')
-        }
-    
-        try{
-            const { tokens }: any = await oauth2Client.getToken(google_code);
-         
-            oauth2Client.setCredentials(tokens);
-            const people = google.people({ version: 'v1', auth: oauth2Client });
-    
-            const { data }: any = await people.people.get({
-                resourceName: 'people/me',
-                personFields: 'addresses,names,emailAddresses,photos'
-            });
-    
-            const google_email = data.emailAddresses[0].value;
-            const google_profilePicUrl = data.photos[0].url;
-            const google_name = data.names.displayName;
-            const user = {
-                name: google_name,
-                email: google_email,
-                picture: google_profilePicUrl
-            }
-
-            //save session
-            
-            //saveuser on mongo
-            const foundEntity = mongo.findOneOngOrUserWhereOR(user.email);
-            if (!foundEntity) {
-                const inserted_id = await mongo.insertOneUser({ ...user, created_at: MyDate.getCurrentDateAndTime() });
-                if (!inserted_id) {
-                    res.writeHead(404, { 'Content-Type': 'text/plain' });
-                    return res.end('Something went wrong on mongodb user insertion')
-                }
-                const saved = redis.storeGoogleSession(tokens.access_token, {refresh_token: tokens.refresh_token, ...user, id: inserted_id});
-                if (!saved) {
-                    res.writeHead(404, { 'Content-Type': 'text/plain' });
-                    return res.end('Something went wrong on redis access-token insertion')
-                }
-            }
-            
-            res.setHeader('Set-Cookie', [
-                `access_token=Google ${tokens.access_token}; path=/; max-age=86400`, // 1 Day
-                `refresh_token=Google ${tokens.refresh_token}; path=/; max-age=86400`
-            ]);
-
-            res.writeHead(302, { 'Location': `/test` });
-            return res.end()
-    } catch(err){
-        console.log('catcherr' + err)
-        return res.end('not authorized')
-    }
-}
 
 const getDonationsPack = async (request_url: string, res: ServerResponse) => {
     const parsedUrl = url.parse(request_url);
@@ -199,7 +130,7 @@ const getDonationsPack = async (request_url: string, res: ServerResponse) => {
         return res.end('Error Sanitazing: ' + isError)
     }
     const data: any = await mongo.retrieveFiveItems2(Number(pack))
-    const likes = await redis.getLikesOfMultipleOrders(data)
+    const likes = await redis.getLikesOfMultipleOngs(data)
 
     
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -224,6 +155,7 @@ const getOngsPack = async (request_url: string, res: ServerResponse) => {
         pack = queryParams.pack;
     }
     console.log(pack);
+    // pack = 1;
 
     const isError = Sanitaze.sanitazePackNumber(pack)
     if (isError) {
@@ -231,10 +163,10 @@ const getOngsPack = async (request_url: string, res: ServerResponse) => {
         return res.end('Error Sanitazing: ' + isError)
     }
     const data: any = await mongo.retrieveFiveOngs(Number(pack))
-    redis.getLikesOfMultipleOrders(data)
+    const likes = await redis.getLikesOfMultipleOngs(data)
     
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({data: data}))
+    return res.end(JSON.stringify({data, likes}))
 }
 
 
@@ -282,66 +214,67 @@ const getMyLikedPosts = async (req: IncomingMessage, res: ServerResponse) => {
 }
 
 
-const addFavorite = async (req: IncomingMessage, res: ServerResponse) => {
 
-    AccessTokenVerification(req, res, async (decoded: any) => { 
-  
-    const req_url: any = req.url
-    const parsedUrl = url.parse(req_url);
-    let order_id: any;
-    if (parsedUrl.query) {
-        const queryParams = querystring.parse(parsedUrl.query);
-        order_id = queryParams.order_id;
-    }
+// const addFavorite = async (req: IncomingMessage, res: ServerResponse) => {
 
-    //   const isError = Sanitaze.sanitazePackNumber(order_id)
-    //   if (isError) {
-    //     res.writeHead(404, { 'Content-Type': 'text/plain' });
-    //     return res.end('Error Sanitazing: ' + isError)
-    //   }
+//     AccessTokenVerification(req, res, async (decoded: any) => { 
   
-      // if (decoded.type !== 'user') {
-      //   res.writeHead(404, { 'Content-Type': 'text/plain' });
-      //   return res.end('Ongs can not add to favorites')
-      // }
+//     const req_url: any = req.url
+//     const parsedUrl = url.parse(req_url);
+//     let order_id: any;
+//     if (parsedUrl.query) {
+//         const queryParams = querystring.parse(parsedUrl.query);
+//         order_id = queryParams.order_id;
+//     }
+
+//     //   const isError = Sanitaze.sanitazePackNumber(order_id)
+//     //   if (isError) {
+//     //     res.writeHead(404, { 'Content-Type': 'text/plain' });
+//     //     return res.end('Error Sanitazing: ' + isError)
+//     //   }
+  
+//       // if (decoded.type !== 'user') {
+//       //   res.writeHead(404, { 'Content-Type': 'text/plain' });
+//       //   return res.end('Ongs can not add to favorites')
+//       // }
       
       
-      const cachedFound = cachedOrderesForFavorites.find((element: any) => { return element._id == order_id })
+//       const cachedFound = cachedOrderesForFavorites.find((element: any) => { return element._id == order_id })
       
-      if (cachedFound) { // it is cached
-        console.log('from cache')
-        const favoriteAlready = await redis.findFavorite(decoded.id, cachedFound)
-        if (favoriteAlready) {
-          res.writeHead(200, { 'Content-Type': 'text/plain' });
-          return res.end()
-        }
-        await redis.storeFavorite(decoded.id, cachedFound)
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        return res.end('ok')
+//       if (cachedFound) { // it is cached
+//         console.log('from cache')
+//         const favoriteAlready = await redis.findFavorite(decoded.id, cachedFound)
+//         if (favoriteAlready) {
+//           res.writeHead(200, { 'Content-Type': 'text/plain' });
+//           return res.end()
+//         }
+//         await redis.storeFavorite(decoded.id, cachedFound)
+//         res.writeHead(200, { 'Content-Type': 'text/plain' });
+//         return res.end('ok')
         
-      } else { // not cached
-        console.log('from database')
-        const orderFound = await mongo.findOneOrderById(order_id)
+//       } else { // not cached
+//         console.log('from database')
+//         const orderFound = await mongo.findOneOrderById(order_id)
      
-        if (!orderFound) {
-          res.writeHead(404, { 'Content-Type': 'text/plain' });
-          return res.end('Order does not exist')
-        }
-        cachedOrderesForFavorites.push(orderFound)
+//         if (!orderFound) {
+//           res.writeHead(404, { 'Content-Type': 'text/plain' });
+//           return res.end('Order does not exist')
+//         }
+//         cachedOrderesForFavorites.push(orderFound)
    
-        const favoriteAlready = await redis.findFavorite(decoded.id, orderFound)
-        if (favoriteAlready) {
-          res.writeHead(200, { 'Content-Type': 'text/plain' });
-          return res.end()
-        }
+//         const favoriteAlready = await redis.findFavorite(decoded.id, orderFound)
+//         if (favoriteAlready) {
+//           res.writeHead(200, { 'Content-Type': 'text/plain' });
+//           return res.end()
+//         }
         
-        redis.storeFavorite(decoded.id, orderFound)
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        return res.end('ok')
+//         redis.storeFavorite(decoded.id, orderFound)
+//         res.writeHead(200, { 'Content-Type': 'text/plain' });
+//         return res.end('ok')
         
-      }
-    })
-  }
+//       }
+//     })
+//   }
 
 const deleteFavorite = async (req: IncomingMessage, res: ServerResponse) => { 
     AccessTokenVerification(req, res, async (decoded: any) => { 
@@ -382,19 +315,19 @@ const deleteFavorite = async (req: IncomingMessage, res: ServerResponse) => {
     AccessTokenVerification(req, res, async (decoded: any) => {
       const req_url: any = req.url
       const parsedUrl = url.parse(req_url);
-      let order_id: any;
+      let ong_id: any;
       if (parsedUrl.query) {
         const queryParams = querystring.parse(parsedUrl.query);
-        order_id = queryParams.order_id;
+        ong_id = queryParams.ong_id;
     }
     // const isError = Sanitaze.sanitazeLoginInfo(body)
     //   if (isError) {
     //     res.writeHead(404, { 'Content-Type': 'text/plain' });
     //     return res.end('Error Sanitazing: ' + isError)
     // }
-      await redis.storeLikeIfNotFound(decoded.id, order_id)
+      await redis.storeLikeIfNotFound(decoded.id, ong_id)
       res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end('')
+      res.end()
     })
   };
 
@@ -402,26 +335,26 @@ const deleteFavorite = async (req: IncomingMessage, res: ServerResponse) => {
     AccessTokenVerification(req, res, async (decoded: any) => {
       const req_url: any = req.url
       const parsedUrl = url.parse(req_url);
-      let order_id: any;
+      let ong_id: any;
       if (parsedUrl.query) {
         const queryParams = querystring.parse(parsedUrl.query);
-        order_id = queryParams.order_id;
+        ong_id = queryParams.ong_id;
     }
     // const isError = Sanitaze.sanitazeLoginInfo(body)
     //   if (isError) {
     //     res.writeHead(404, { 'Content-Type': 'text/plain' });
     //     return res.end('Error Sanitazing: ' + isError)
     // }
-      await redis.deleteLikeIfFound(decoded.id, order_id)
+      await redis.deleteLikeIfFound(decoded.id, ong_id)
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.end('')
     })
   };
 
+  
 const getMyOrders = async (req: IncomingMessage, res: ServerResponse) => { 
     AccessTokenVerification(req, res, async (decoded: any) => { 
-        console.log(decoded.id)
-        const foundDocuments = await mongo.findAllCompanyOrders({ owner: new ObjectId(decoded.id) })
+        const foundDocuments = await mongo.findAllCompanyOrdersById(decoded.id)
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify(foundDocuments)) // red
     })
@@ -618,14 +551,14 @@ function validateItems(requested: number[], donated: number[], being_donated: nu
   
 export const GET = {
     registerValidation,
-    loginOAuth,
-    OAuthCallBack,
+    // loginOAuth,
+    // OAuthCallBack,
     getDonationsPack,
     getFavorites,
     getSingleOrder,
     profile,
     deleteFavorite,
-    addFavorite,
+    // addFavorite,
     likeOrder,
     unlikeOrder,
     getOng,
@@ -636,5 +569,6 @@ export const GET = {
     userswhodonatedtospecificorder,
     deleteAppointment,
     confirmDonation,
-    testget
+    testget,
+    
 }
