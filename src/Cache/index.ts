@@ -1,4 +1,4 @@
-import { Mongo } from "../Databases/Mongo"
+import { Mongo } from "../Database/Mongo"
 import {mongo} from '../index'
 import { ObjectId } from 'mongodb'
 
@@ -66,9 +66,12 @@ export interface OutputtedAppointment{
     time: string;
     items: any[];
     confirmed: boolean;
+
+    order_parent?: any;
 }
 export class AppointmentCache{
     private appointments: OutputtedAppointment[] = []
+    private appointments_from_same_user: OutputtedAppointment[] = []
 
     // constructor(private mongo: Mongo){}
     constructor(private inMemoryCounter: InMemoryCounter) {
@@ -83,6 +86,22 @@ export class AppointmentCache{
         const database: OutputtedAppointment | null = await mongo.findOneAppointmentById(id)
         if (database){
             this.appointments.push(database)
+            return database;
+        }
+        return null;
+    }
+
+    async getAppointmentsFromUserId(id: string): Promise<OutputtedAppointment[] | null> {
+        const cached = this.appointments_from_same_user.filter((appointment: OutputtedAppointment) => { return appointment.user_parent_id.toString() === id });
+        if (cached.length > 0) {
+            console.log('from cache')
+            return cached;
+        }
+        const database: OutputtedAppointment[] | null = await mongo.findAppointmentsFromUserId(id)
+        if (database && database.length > 0){
+            console.log('from db')
+            this.appointments_from_same_user.push(...database)
+            console.log(this.appointments_from_same_user)
             return database;
         }
         return null;
@@ -177,14 +196,25 @@ export class OrderCache{
     }
 
     async getOrderById(id: string): Promise<OutputtedOrder | null> {
-        const cached = this.orders.find((order: OutputtedOrder) => order._id.toString() == id );
+        const cached = this.orders.find((order: OutputtedOrder) => order._id.toString() === id );
         if (cached){
-            console.log('from cache')
             return cached;
         }
         const database: OutputtedOrder | null = await mongo.findOneOrderById(id)
         if (database){
             this.orders.push(database)
+            return database;
+        }
+        return null;
+    }
+    async getOrderByOwnerId(id: string): Promise<OutputtedOrder[] | null> {
+        // const cached = this.orders.filter((order: OutputtedOrder) => order.owner.toString() !== id );
+        // if (cached){
+        //     return cached;
+        // }
+        const database: OutputtedOrder[] | null = await mongo.findAllCompanyOrdersById(id)
+        if (database){
+            this.orders.push(...database)
             return database;
         }
         return null;
@@ -251,7 +281,6 @@ export class OngCache{
         }
         return null;
     }
-    
-
 }
+
 

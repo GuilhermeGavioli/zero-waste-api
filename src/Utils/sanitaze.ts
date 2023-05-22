@@ -63,7 +63,7 @@ export class Sanitaze{
     private static appointmentSchema = Joi.object({
         order_parent_id: Joi.string().length(24).required(),
         day: Joi.string().valid('seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom').required(),
-        time: Joi.string().regex(/^\d{2}:\d{2}$/).required(),
+        // time: Joi.string().regex(/^\d{2}:\d{2}$/).required(),
         items: Joi.array().items((Joi.number().integer().min(0).max(150))).length(7).required(),
     });
  

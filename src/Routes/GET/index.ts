@@ -2,13 +2,13 @@ import { IncomingMessage, ServerResponse } from 'http'
 import url from 'node:url'
 import querystring from 'node:querystring'
 import { Sanitaze } from '../../Utils/sanitaze';
-import { appointmentCache, mongo, orderCache, redis } from '../..';
+import { appointmentCache, mongo, ongCache, orderCache, redis } from '../..';
 import { MyDate } from '../../Utils/MyDate';
 
 import { google } from 'googleapis';
 // import { oauth2Client, scopes } from '../../OAuth/google'
 import { AccessTokenVerification } from '../../Middlewares';
-import {cachedOngs, cachedOrderesForFavorites, cachedUsersWhoDonatedAndDonatedItems} from '../../Cache/index'
+import {cachedOngs, cachedOrderesForFavorites, cachedUsersWhoDonatedAndDonatedItems, OrderCache} from '../../Cache/index'
 import { ObjectId } from 'mongodb';
 
   
@@ -84,7 +84,7 @@ const registerValidation = async (request_url: string, res: ServerResponse) => {
      }
 }
 
-const getSingleOrder = async (req: IncomingMessage, res: ServerResponse) => {
+const getSingleOrderAndOngTime = async (req: IncomingMessage, res: ServerResponse) => {
     const req_url: any = req.url
     const parsedUrl = url.parse(req_url);
     let order_id: any;
@@ -92,22 +92,47 @@ const getSingleOrder = async (req: IncomingMessage, res: ServerResponse) => {
         const queryParams = querystring.parse(parsedUrl.query);
         order_id = queryParams.order_id;
     }
-    const isOrderCached = cachedOrderesForFavorites.find((el: any) => { return el._id.toString() == order_id.toString() })
-    if (isOrderCached) {
-        console.log('from cache')
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify(isOrderCached))
-    } else {
-        
-        const orderFound = await mongo.findOneOrderById(order_id)
-        if (!orderFound) {
-            res.writeHead(404, { 'Content-Type': 'text/plain' });
-            return res.end('Order does not exist')
+
+    console.log(order_id)
+
+    // const isError = Sanitaze.(pack)
+    // if (isError) {
+    //     res.writeHead(404, { 'Content-Type': 'text/plain' });
+    //     return res.end('Error Sanitazing: ' + isError)
+    // }
+
+    const foundOrder = await orderCache.getOrderById(order_id)
+    if (!foundOrder) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Order not found')
+    }
+
+    const foundOng = await ongCache.getOngById(foundOrder.owner)
+    if (!foundOng) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Ong not found, it might have benn deleted or does not exist.')
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({order: foundOrder, time: foundOng.working_time }))
+}
+const getOrdersFromAnOng = async (request_url: string, res: ServerResponse) => {
+    const parsedUrl = url.parse(request_url);
+    if (parsedUrl.query) {
+    const queryParams = querystring.parse(parsedUrl.query);
+    const ong_id  = queryParams.ong_id;
+        if (!ong_id) {
+            res.writeHead(400, {'Content-Type': 'text/plain'});
+            return res.end('ong id not specified')
         }
-        console.log('from databse')
-        cachedOrderesForFavorites.push(orderFound)
+        console.log(ong_id)
+        // TODO: sanitaze ong id
+        
+        
+        const ordersFound = await orderCache.getOrderByOwnerId(ong_id.toString())
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify(orderFound))
+        return res.end(JSON.stringify(ordersFound))
+        
     }
 
 }
@@ -359,6 +384,16 @@ const getMyOrders = async (req: IncomingMessage, res: ServerResponse) => {
         return res.end(JSON.stringify(foundDocuments)) // red
     })
 }
+const getMyAppointments = async (req: IncomingMessage, res: ServerResponse) => { 
+    AccessTokenVerification(req, res, async (decoded: any) => { 
+        const foundAppointments = await appointmentCache.getAppointmentsFromUserId(decoded.id)
+        foundAppointments?.forEach(async appointment => {
+            appointment.order_parent = await orderCache.getOrderById(appointment.order_parent_id.toString())
+        })
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(foundAppointments)) // red
+    })
+}
 
 
 const profile = async (req: IncomingMessage, res: ServerResponse) => {
@@ -555,7 +590,9 @@ export const GET = {
     // OAuthCallBack,
     getDonationsPack,
     getFavorites,
-    getSingleOrder,
+    getSingleOrderAndOngTime,
+    getOrdersFromAnOng,
+
     profile,
     deleteFavorite,
     // addFavorite,
@@ -570,5 +607,7 @@ export const GET = {
     deleteAppointment,
     confirmDonation,
     testget,
+
+    getMyAppointments
     
 }

@@ -247,10 +247,10 @@ const makeAppointment = async (req: IncomingMessage, res: ServerResponse, body: 
   AccessTokenVerification(req, res, async (decoded: any) => {
     
  
-      if (decoded.type !== 'user') {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        return res.end('only users can make appointmnets')
-      }
+      // if (decoded.type !== 'user') {
+      //   res.writeHead(404, { 'Content-Type': 'text/plain' });
+      //   return res.end('only users can make appointmnets')
+      // }
 
       const isError = Sanitaze.sanitazeAppointment(body)
       if (isError) {
@@ -302,7 +302,7 @@ const makeAppointment = async (req: IncomingMessage, res: ServerResponse, body: 
       const foundOng: OutputtedOng | null = await ongCache.getOngById(foundOrder.owner.toString())
       if (!foundOng) {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
-        return res.end('ONG not found')
+        return res.end('ONG not found or has been deleted')
       }
       //nn:nn-nn:nn
       // const ong_worker_day_time = foundOng.working_time[`${body.day}`].split('-');

@@ -201,7 +201,7 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
     }
   }
   
-  async findAllCompanyOrdersById(ong_id: string) { // max five
+  async findAllCompanyOrdersById(ong_id: string): Promise<OutputtedOrder[] | null> { // max five
     try {
       // const query = [
       //   { $where: data_object }
@@ -209,8 +209,8 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
       const docs = await this.order_collection?.find({owner: new ObjectId(ong_id) }).toArray()
 
       // const docs = await this.order_collection?.aggregate(query).toArray()
-      if (!docs || docs?.length === 0) return {};
-      return docs;
+      if (!docs || docs?.length === 0) return null;
+      return docs as OutputtedOrder[];
     } catch (err) {
       console.log('Error findind all company orders document:', err);
       return null;
@@ -622,6 +622,19 @@ async findAppointmentByUserIDAndOrderID(user_parent_id: string, order_parent_id:
       return null;
     }
 }
+  async findAppointmentsFromUserId(user_id: string): Promise<OutputtedAppointment[] | null> {
+    try {
+      const d = await this.appointment_collection?.find({ user_parent_id: new ObjectId(user_id) }).toArray() as OutputtedAppointment[];  
+      console.log('d')
+      console.log(d)
+      return d
+    } catch (err) {
+      console.log(err)
+      return null;
+    }
+}
+
+
 
   // APPOINTMENT
 }
