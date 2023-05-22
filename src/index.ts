@@ -23,8 +23,11 @@ export const appointmentCache = new AppointmentCache(inMemoryCounter)
 export const orderCache = new OrderCache(inMemoryCounter)
 export const ongCache = new OngCache(inMemoryCounter)
 
+import {runScenario } from './Test/setUpDb'
 
-
+// setTimeout(() => {
+//     runScenario()
+// }, 6000);
 
 createServer(async (req: IncomingMessage, res: ServerResponse) => {
     
@@ -114,6 +117,7 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
         else if (URL === '/unlike') GET.unlikeOrder(req, res)
         else if (URL === '/mylikedposts') GET.getMyLikedPosts(req, res)
         else if (URL === '/mylikes') GET.getMyLikes(req, res)
+        else if (URL === '/mostlikedongs') GET.getMostLikedOngs(req, res)
             
             
         else if (URL === '/ongs') GET.getOng(req, res) // public

@@ -159,6 +159,27 @@ export class RedisMock {
             this.likes.push(like);
         }
     }
+
+    async getMostLikedOngs() { // four most liked
+       // Count likes for each ong_id
+        const likeCountMap = this.likes.reduce((acc, obj) => {
+            const ongId = obj.ong_id;
+            acc[ongId] = (acc[ongId] || 0) + 1;
+            return acc;
+        }, {});
+        
+        // Get the four most liked ong_id values
+        const sortedOngIds = Object.keys(likeCountMap)
+            .sort((a, b) => likeCountMap[b] - likeCountMap[a])
+            .slice(0, 4);
+        
+        // Count likes only for the four most liked ong_id values
+        const topLikeCountMap = sortedOngIds.reduce((acc: any, ongId: any) => {
+            acc[ongId] = likeCountMap[ongId];
+            return acc;
+        }, {});
+        return topLikeCountMap;
+    }
     async deleteLikeIfFound(user_id: string, ong_id: string) {
         this.likes = this.likes.filter(l => !(l.user_id === user_id && l.ong_id === ong_id));
         console.log('deleted')

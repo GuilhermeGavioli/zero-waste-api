@@ -1,5 +1,6 @@
-import { mongo } from ".";
-import { MyDate } from "./Utils/MyDate";
+import { promisify } from "node:util";
+import { mongo } from "..";
+import { MyDate } from "../Utils/MyDate";
 
 
 function generateRandonValueBetween(min: number, max: number): number {
@@ -29,6 +30,10 @@ const names: any[] = [
     {
         name: 'Guilherme Gavioli',
         email: `guilherme@gmail.com`
+    },
+    {
+        name: 'Joao da Silva',
+        email: `joao@gmail.com`
     },
     {
         name: 'Washington Luis',
@@ -476,41 +481,54 @@ export const ong_names: any[] = [{
     orders: [],
     donations: [],
 },
-
 ]
 
+const Ongdescription = 'Somos um Instituto comprometido em ajudar pessoas que passam necessidade, através do acolhimento dessas pessoas e fornecimento de mantimentos, moradia e oportunidades para que elas possam mudar de vida. Como educação e emprego. Nosso objetivo é ajudar um numero cada vez maior de pessoas possiveis.'
 
 
+export async function insertUsers(): Promise<void> {
+    return new Promise((resolve, rej): void => {
 
-export async function insertUsers() {
-    for (let i =0; i < names.length; i++){
-        const user: any = {
-            name: names[i].name,
-            email: names[i].email,
+        for (let i =0; i < names.length; i++){
+            const user: any = {
+                name: names[i].name,
+                email: names[i].email,
             phone: `${generateRandonValueBetween(10000000000, 99999999999)}`,
             xp: generateRandonValueBetween(20, 200),
             password: `Test1234`,
-            address: 'Praça dos tres Poderes, Brasilia',
+            address: 'Praça dos tres Poderes',
+            address_state: 'DF',
+            address_number: '430',
+            
             type: 'user',
             created_at: MyDate.getCurrentDateAndTime()
         };
         (async ()=>{
             await mongo.insertOneUser({  ...user  })
         })()
-    }
+        }
+        resolve()
+    })
 }
 
 
-export async function insertOngs() { 
+export async function insertOngs(): Promise<void> {
+    return new Promise((resolve, rej): void => { 
     for (let i =0; i < ong_names.length; i++){
         const ong: any = {
             name: ong_names[i].name,
             phone: `${generateRandonValueBetween(10000000000, 99999999999)}`,
             cpnj: `${generateRandonValueBetween(10000000000000, 99999999999999)}`,
-            email: `${ong_names[i].name.toString().toLowerCase().trim()}@gmail.com`,
+            email: `${ong_names[i].name.toString().toLowerCase().replace(/\s/g, '')}@gmail.com`,
             working_time: ong_names[i].working_time,
-            password: `Test1234`,
-            address: 'Praca da Lisboa, 495',
+            description: Ongdescription,
+            password: `123456789`,
+
+            address_street: 'Praca da Lisboa',
+            address_state: 'SP',
+            // address_city: 'SP',
+            address_number: '1092',
+
             type: 'ong',
             created_at: MyDate.getCurrentDateAndTime()
         };
@@ -519,10 +537,13 @@ export async function insertOngs() {
             ong_names[i].id = ong_id
            
         })()
-    }
+        }
+        resolve()
+    })
 }
 
-export async function insertOrders() { 
+export async function insertOrders(): Promise<void> {
+    return new Promise((resolve, rej): void => { 
     for (let i = 0; i < 50; i++){
         const items = {
             conserva: 150,
@@ -564,10 +585,13 @@ export async function insertOrders() {
           ong_names[random].orders.push(fullorder);
          
       })()
-    }
+        }
+        resolve()
+    })
 } 
 
-export async function insertDonations() {
+export async function insertDonations(): Promise<void> {
+    return new Promise((resolve, rej): void => {
     for (let i = 0; i < 50; i++){
         const random = generateRandonValueBetween(0, ong_names.length - 1)
         const random_names = generateRandonValueBetween(0, names.length - 1)
@@ -591,8 +615,21 @@ export async function insertDonations() {
          await mongo.insertOneDonation2({ ...donation })
          ong_names[random].donations.push(donation)
     })()
-}
+        }
+        resolve()
+    })
 }
  
 
 
+
+
+export async function runScenario() {
+    
+        await mongo.clearAll(),
+        await insertUsers(),
+        await insertOngs(),
+        await insertOrders()
+    
+        console.log('finished')
+}

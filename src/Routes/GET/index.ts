@@ -172,6 +172,20 @@ const getMyLikes = async (req: IncomingMessage, res: ServerResponse) => {
     })
 }
 
+const getMostLikedOngs = async (req: IncomingMessage, res: ServerResponse) => { 
+    const mostLikedOngs = await redis.getMostLikedOngs()
+    const ongs: any = []
+    const ongIds = Object.keys(mostLikedOngs);
+    ongIds.forEach(async (ongId) => {
+        const ongFound = await ongCache.getOngById(ongId)
+        const ong = {likedCount: mostLikedOngs[ongId], ongInfo: ongFound }
+        ongs.push(ong)
+    });
+    await Promise.all(ongs);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(ongs));
+}
+
 const getOngsPack = async (request_url: string, res: ServerResponse) => {
     const parsedUrl = url.parse(request_url);
     let pack: any;
@@ -608,6 +622,7 @@ export const GET = {
     confirmDonation,
     testget,
 
-    getMyAppointments
+    getMyAppointments,
+    getMostLikedOngs
     
 }
