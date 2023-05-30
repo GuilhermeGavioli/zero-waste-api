@@ -136,6 +136,13 @@ const registerOng = async (req: IncomingMessage, res: ServerResponse, body: any)
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       return res.end('Error Sanitazing: ' + isError)
   }
+
+  if (req.body.password !== req.body.confirm_password) { 
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('Senhas não correspondem')
+  }
+
+
   const UserOrOngFound = await mongo.findOneOngOrUserWhereOR(body);
   if (UserOrOngFound) {
     res.writeHead(404, { 'Content-Type': 'text/plain' });

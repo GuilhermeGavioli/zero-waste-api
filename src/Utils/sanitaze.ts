@@ -49,6 +49,7 @@ export class Sanitaze{
         email: Joi.string().email().min(6).max(113).required(),
         cnpj: Joi.string().pattern(/^\d{8}0001\d{2}$/).required(), // XXXXXXXX0001XX
         password: Joi.string().regex(/^[a-zA-Z0-9 ]*$/).min(8).max(50).required(),
+        confirm_password: Joi.string().regex(/^[a-zA-Z0-9 ]*$/).min(8).max(50).required(),
         working_time: Joi.object({
             seg: Joi.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])-(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$/).required(),
             ter: Joi.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])-(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$/).required(),
