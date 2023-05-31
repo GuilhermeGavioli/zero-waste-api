@@ -60,6 +60,7 @@ const createOrder = async (req: IncomingMessage, res: ServerResponse, body: any)
     const foundOng = await mongo.findOneOngById(decoded.id)
     if (!foundOng) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
+      console.log('ong not found')
       return res.end('ONG not found')
     }
    
@@ -137,25 +138,32 @@ const registerOng = async (req: IncomingMessage, res: ServerResponse, body: any)
       return res.end('Error Sanitazing: ' + isError)
   }
 
-  if (req.body.password !== req.body.confirm_password) { 
+  if (body.password !== body.confirm_password) { 
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     return res.end('Senhas não correspondem')
   }
 
-
   const UserOrOngFound = await mongo.findOneOngOrUserWhereOR(body);
   if (UserOrOngFound) {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
-    return res.end('Entity already exists')
+    return res.end('Email already exists')
   }
-  const path = GenerateLinkCode.generatePath()
-  const saved = await redis.storeVerification(path, { ...body, type: 'ong', xp: 0 });
-  if (!saved) {
+
+  const verification: any | null = await redis.getVerificationBasedOnEmail(body.email)
+  if (!verification) {
+    
+    const path = GenerateLinkCode.generatePath()
+    const saved = await redis.storeVerification(path, { ...body, type: 'ong', xp: 0 })
+    if (!saved) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Error while saving your log')
+    }
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    return res.end('Error while saving your log')
-  }
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  return res.end(`We will sent an email with a verification link \n ${path}`) // TODO: Sent an email
+    console.log(`We will sent an email with a verification link \n ${path}`)
+    return res.end(`We will sent an email with a verification link \n ${path}`) // TODO: Sent an email
+  } 
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  return res.end('You ordered emails two times already... wait 90 seconds')
 };
 
 

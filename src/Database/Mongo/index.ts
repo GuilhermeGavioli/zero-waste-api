@@ -142,6 +142,15 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
     }
 }
 
+  
+  async findOneOngWhere(object: any): Promise<OutputtedOng | null> {
+    try {
+      return await this.ong_collection?.findOne(object) as OutputtedOng;
+    } catch (err) {
+      console.log(err)
+      return null;
+    }
+  }
 
 
 

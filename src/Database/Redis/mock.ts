@@ -1,6 +1,9 @@
 import { ObjectId } from 'mongodb';
 import { createClient } from 'redis';
-
+import NodeCache from 'node-cache'
+const myCache = new NodeCache();
+const myEmailCache = new NodeCache();
+const burnedCodePaths = new NodeCache();
 
 
 export class RedisMock {
@@ -15,19 +18,41 @@ export class RedisMock {
         this.favorites = []
         this.likes = []
     }
-    
+
     public async start() {
         console.log('Using Redis Mock')
     }
 
     async storeVerification(code_path: string, entity: any): Promise<any | null> {
-        try {
-            this.data.push({ key: code_path, value: entity });
-            console.log(this.data)
-            return true;
-        } catch (err) {
-            return null;
-        }
+        myCache.set(code_path, JSON.stringify({ ...entity, used: false }), 90);
+        myCache.set(entity.email, JSON.stringify({ time: 0 }), 90); 
+        return true;
+    }
+    
+    async getVerificationBasedOnEmail(email: string) {
+        return await myCache.get(email)
+        // if (!found) {
+        //     return false;
+        // }
+        // const foundParsed = JSON.parse(found)
+        // if (foundParsed.time == 2) {
+        //     return false;
+        // }
+        // myCache.set(email, JSON.stringify({time: foundParsed.time++}), 90)
+        // return true;
+    }
+
+    async getVerification(code_path: string): Promise<any | null> {
+        return await myCache.get(code_path);
+    }
+
+    async burnCodePath(code_path: string): Promise<any | null> {
+        burnedCodePaths.set(code_path, JSON.stringify({ burned: true }))
+        return true;
+    }
+
+    async getBurnedCodePath(code_path: string): Promise<any | null> {
+        return burnedCodePaths.get(code_path)
     }
 
     async storeTokenAsCache(token: string, token_info: string) {
@@ -123,17 +148,6 @@ export class RedisMock {
         try {
             this.data = this.data.filter((item) => { return item.key !== key })
             return true;
-        } catch (err) {
-            return null;
-        }
-    }
-
-    async getVerification(code_path: string): Promise<any | null> {
-        try {
-            const code_user = this.data.find((item) => { return item.key === code_path })
-            console.log(code_user)
-            if (code_user) return code_user.value
-            return null;
         } catch (err) {
             return null;
         }

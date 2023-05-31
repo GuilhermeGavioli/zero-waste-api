@@ -31,46 +31,51 @@ const registerValidation = async (request_url: string, res: ServerResponse) => {
             res.writeHead(400, {'Content-Type': 'text/plain'});
             return res.end('code path not specified')
         }
+        const stringified_code_path = code_path.toString()
 
-        const isError = Sanitaze.sanitazeCodePath(code_path.toString())
+        const isError = Sanitaze.sanitazeCodePath(stringified_code_path)
         if (isError) {
             res.writeHead(404, { 'Content-Type': 'text/plain' });
             return res.end('Error Sanitazing: ' + isError)
         }
 
-        const is_code_path_blacklisted = blackList.includes(code_path.toString())
-
-        if (is_code_path_blacklisted) {
-            res.writeHead(404, { 'Content-Type': 'text/plain' });
-            return res.end('This code has been stacked and it has been now blacklisted')
-        }
-            
-        const entity = await redis.getVerification(code_path.toString());
-        if (!entity) {
-            res.writeHead(404, { 'Content-Type': 'text/plain' });
-            return res.end('Your code might have been expired')
-        }
-            
-            if (entity.type === 'ong') {
-                const inserted_id = await mongo.insertOneOng({ ...entity, created_at: MyDate.getCurrentDateAndTime() });
-                if (!inserted_id) {
-                    res.writeHead(404, { 'Content-Type': 'text/plain' });
-                    return res.end('Something went wrong')
-                }
-            } else if (entity.type === 'user') {
-                const inserted_id = await mongo.insertOneUser({ ...entity, created_at: MyDate.getCurrentDateAndTime() });
-                if (!inserted_id) {
-                    res.writeHead(404, { 'Content-Type': 'text/plain' });
-                    return res.end('Something went wrong')
-                }
-            } else {
+            const entity: any | null = await redis.getVerification(stringified_code_path);
+            if (!entity) {
                 res.writeHead(404, { 'Content-Type': 'text/plain' });
-                return res.end('Something went wrong')
+                return res.end('Your code might have been expired')
             }
-            blackList.push(code_path.toString())
-            await redis.deleteVerification(code_path.toString());
-            res.writeHead(200, {'Content-Type': 'text/plain'});
-            return res.end('Welcome, Successfully created!')
+            const parsedEntity = JSON.parse(entity)
+            
+            if (parsedEntity.type === 'ong') {
+                const found = await mongo.findOneOngWhere({ email: parsedEntity.email })
+                if (found) {
+                    res.writeHead(404, { 'Content-Type': 'text/plain' });
+                    return res.end('User is created already')
+                }
+
+                const inserted_id = await mongo.insertOneOng({ ...parsedEntity, created_at: MyDate.getCurrentDateAndTime() });
+                if (!inserted_id) {
+                    res.writeHead(404, { 'Content-Type': 'text/plain' });
+                    return res.end('Something went wrong 1')
+                }
+
+                res.writeHead(200, {'Content-Type': 'text/plain'});
+                return res.end('Welcome, Successfully created!')
+
+            }
+            
+
+         
+            // } else if (entity.type === 'user') {
+            //     const inserted_id = await mongo.insertOneUser({ ...entity, created_at: MyDate.getCurrentDateAndTime() });
+            //     if (!inserted_id) {
+            //         res.writeHead(404, { 'Content-Type': 'text/plain' });
+            //         return res.end('Something went wrong 2 ')
+            //     }
+         
+
+            res.writeHead(400, {'Content-Type': 'text/plain'});
+            return res.end('unexpected')
 
         
     } else {
@@ -101,7 +106,9 @@ const getSingleOrderAndOngTime = async (req: IncomingMessage, res: ServerRespons
     //     return res.end('Error Sanitazing: ' + isError)
     // }
 
-    const foundOrder = await orderCache.getOrderById(order_id)
+    // const foundOrder = await orderCache.getOrderById(order_id)
+    const foundOrder: any | null = await mongo.findOneOrderById(order_id)
+
     if (!foundOrder) {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         return res.end('Order not found')
@@ -116,6 +123,8 @@ const getSingleOrderAndOngTime = async (req: IncomingMessage, res: ServerRespons
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({order: foundOrder, time: foundOng.working_time }))
 }
+
+
 const getOrdersFromAnOng = async (request_url: string, res: ServerResponse) => {
     const parsedUrl = url.parse(request_url);
     if (parsedUrl.query) {
