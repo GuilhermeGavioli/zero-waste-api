@@ -79,7 +79,7 @@ export class AppointmentCache{
     }
 
     async getAppointmentById(id: string): Promise<OutputtedAppointment | null> {
-        const cached = this.appointments.find((appointment: OutputtedAppointment) => { appointment._id.toString() == id });
+        const cached = this.appointments.find((appointment: OutputtedAppointment) => appointment._id.toString() == id );
         if (cached){
             return cached;
         }
@@ -92,16 +92,16 @@ export class AppointmentCache{
     }
 
     async getAppointmentsFromUserId(id: string): Promise<OutputtedAppointment[] | null> {
-        const cached = this.appointments_from_same_user.filter((appointment: OutputtedAppointment) => { return appointment.user_parent_id.toString() === id });
-        if (cached.length > 0) {
-            console.log('from cache')
-            return cached;
-        }
+        // const cached = this.appointments_from_same_user.filter((appointment: OutputtedAppointment) => appointment.user_parent_id.toString() === id );
+        // if (cached.length > 0) {
+        //     console.log('from cache')
+        //     return cached;
+        // }
         const database: OutputtedAppointment[] | null = await mongo.findAppointmentsFromUserId(id)
         if (database && database.length > 0){
             console.log('from db')
-            this.appointments_from_same_user.push(...database)
-            console.log(this.appointments_from_same_user)
+            // this.appointments_from_same_user.push(...database)
+            // console.log(this.appointments_from_same_user)
             return database;
         }
         return null;
@@ -145,13 +145,17 @@ export class AppointmentCache{
     }
 
     async deleteAppointmentById(id: string){
-        const cached = this.appointments.find((appointment: OutputtedAppointment) => { appointment._id.toString() == id });
+        const cached = this.appointments.find((appointment: OutputtedAppointment) => { return appointment._id.toString() === id });
+        console.log('cached1')
+        console.log(cached)
         if (cached){
-            this.appointments = this.appointments.filter((appointment: OutputtedAppointment) =>
-                { return appointment._id !== new ObjectId(id) }
+            this.appointments = this.appointments.filter((appointment: OutputtedAppointment) => appointment._id.toString() !== id.toString() 
             );
-            await mongo.deleteAppointmentById(id);
         }
+        console.log('this.appointments')
+        console.log(this.appointments)
+        await mongo.deleteAppointmentById(id);
+        return true;
     }
 
 }

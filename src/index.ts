@@ -107,6 +107,7 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
         
         // Appointments
         else if (URL === '/myappointments') GET.getMyAppointments(req, res)
+        else if (URL === '/delete/myappointment') GET.deleteMyAppointment(req, res)
             
         // Likes
         else if (URL === '/delete/favorites') GET.deleteFavorite(req,res)
@@ -124,7 +125,7 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
 
         else if (URL === '/getFiveUsers') GET.getDonationsPack(req.url, res) // donations
         else if (URL === '/userswhodonatedtospecificorder') GET.userswhodonatedtospecificorder(req, res)
-        else if (URL === '/deleteappointment') GET.deleteAppointment(req, res)
+        // else if (URL === '/deleteappointment') GET.deleteAppointment(req, res)
         else if (URL === '/confirmdonation') GET.confirmDonation(req, res);
         else if (URL === '/filesystem') {
             // const parsedUrl = url.parse(req.url);

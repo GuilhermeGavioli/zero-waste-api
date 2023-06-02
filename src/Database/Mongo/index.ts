@@ -536,7 +536,7 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
 }
   async deleteAppointmentById(id: string): Promise<boolean> {
     try {
-      await this.appointment_collection?.deleteOne({id: new ObjectId(id)});
+      await this.appointment_collection?.deleteOne({_id: new ObjectId(id)});
       return true
     } catch (err) {
       console.log('Error deleting document:', err);

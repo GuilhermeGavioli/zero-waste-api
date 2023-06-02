@@ -240,6 +240,7 @@ const loginZeroWaste = async (req: IncomingMessage, res: ServerResponse, body: a
   res.setHeader('Authorization', `Bearer ${token}`)
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); 
   const user_info = {
+    id: foundEntity._id,
     type: foundEntity.type,
     name: foundEntity.name,
     image: 'panda.png',
@@ -250,7 +251,7 @@ const loginZeroWaste = async (req: IncomingMessage, res: ServerResponse, body: a
   const cookie2 = `user=${JSON.stringify(user_info)}; Path=/; Expires=${expires.toUTCString()}`
   res.setHeader('Set-Cookie', [cookie1, cookie2]);
   res.statusCode = 200;
-  return res.end(JSON.stringify({ type: foundEntity.type, name: foundEntity.name }));
+  return res.end(JSON.stringify({ ...user_info, email: null}));
 };
 
 const resetPassword = (req: IncomingMessage, res: ServerResponse, body: any) => {
@@ -262,10 +263,10 @@ const makeAppointment = async (req: IncomingMessage, res: ServerResponse, body: 
   AccessTokenVerification(req, res, async (decoded: any) => {
     
  
-      // if (decoded.type !== 'user') {
-      //   res.writeHead(404, { 'Content-Type': 'text/plain' });
-      //   return res.end('only users can make appointmnets')
-      // }
+      if (decoded.type !== 'user') {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('only users can make appointmnets')
+      }
 
       const isError = Sanitaze.sanitazeAppointment(body)
       if (isError) {

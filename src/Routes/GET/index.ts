@@ -418,6 +418,45 @@ const getMyAppointments = async (req: IncomingMessage, res: ServerResponse) => {
     })
 }
 
+const deleteMyAppointment = async (req: IncomingMessage, res: ServerResponse) => { 
+    AccessTokenVerification(req, res, async (decoded: any) => {
+        const req_url: any = req.url
+        const parsedUrl = url.parse(req_url);
+        let appointment_id: any;
+        if (parsedUrl.query) {
+            const queryParams = querystring.parse(parsedUrl.query);
+            appointment_id = queryParams.appointment_id;
+        }
+        if (!appointment_id) {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            return res.end("Agendamento não fornecido") // red
+        }
+        
+        const foundAppointment = await appointmentCache.getAppointmentById(appointment_id)
+        if (!foundAppointment) {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            return res.end("Agendamento não encontrado.") // red
+        }
+        if (foundAppointment.user_parent_id.toString() !== decoded.id) {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            return res.end("Agendamento não pertence à voce") // red
+        }
+        if (foundAppointment.confirmed) {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            return res.end("Agendamento já foi confirmado pela Instituição, portanto, não pode ser removido") // red
+        }
+        
+        const deleted = await appointmentCache.deleteAppointmentById(appointment_id)
+        if (deleted) {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            return res.end()
+        } else {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            return res.end('Something went wrong') // red
+        }
+    })
+}
+
 
 const profile = async (req: IncomingMessage, res: ServerResponse) => {
 
@@ -465,7 +504,6 @@ const profile = async (req: IncomingMessage, res: ServerResponse) => {
 }
 const getOng = async (req: IncomingMessage, res: ServerResponse) => {
     //TODO SANITAZE IT
-
     const req_url: any = req.url
       const parsedUrl = url.parse(req_url);
       let ong_id: any;
@@ -473,22 +511,9 @@ const getOng = async (req: IncomingMessage, res: ServerResponse) => {
         const queryParams = querystring.parse(parsedUrl.query);
         ong_id = queryParams.ong_id;
     }
-
-    const isOngCached = cachedOngs.find((el: any) => { return el._id.toString() == ong_id.toString() })
-    if (isOngCached) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify(isOngCached))
-    } else {
-        const foundOng = await mongo.findOnePublicOng({ _id: new ObjectId(ong_id) })
-        if (foundOng) {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            cachedOngs.push(foundOng)
-            return res.end(JSON.stringify(foundOng))
-        } else {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            return res.end(null)
-        }
-    }
+    const foundOng = await ongCache.getOngById(ong_id)
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(foundOng))
 }
 
 const userswhodonatedtospecificorder = async (req: IncomingMessage, res: ServerResponse) => {
@@ -526,30 +551,6 @@ const userswhodonatedtospecificorder = async (req: IncomingMessage, res: ServerR
 }
 
 
-const deleteAppointment = async (req: IncomingMessage, res: ServerResponse) => { 
-    AccessTokenVerification(req, res, async (decoded: any) => { 
-
-        const req_url: any = req.url
-        const parsedUrl = url.parse(req_url);
-        let appointment_id: any;
-        if (parsedUrl.query) {
-            const queryParams = querystring.parse(parsedUrl.query);
-            appointment_id = queryParams.appointment_id;
-        }
-
-        console.log(appointment_id)
-        console.log(decoded.id)
-
-        const deleted = await mongo.deleteAppointment({ _id: new ObjectId(appointment_id), user_parent_id: new ObjectId(decoded.id) })
-        if (deleted) {
-            res.writeHead(200);
-            return res.end()
-        }
-        res.writeHead(404);
-        return res.end()
-        
-    })
-  }
 
 
   const confirmDonation = async (req: IncomingMessage, res: ServerResponse) => { 
@@ -627,7 +628,8 @@ export const GET = {
     getMyLikes,
     getMyLikedPosts,
     userswhodonatedtospecificorder,
-    deleteAppointment,
+    deleteMyAppointment,
+    
     confirmDonation,
     testget,
 
