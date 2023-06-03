@@ -58,7 +58,9 @@ export class Mongo {
       console.log('Error inserting document:', err);
       return null;
     }
-}
+  }
+  
+ 
  
 
 
@@ -519,9 +521,25 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
   // APPOINTMENT
 
 
+  async findMyCompletedDonations(user_parent_id: string): Promise<OutputtedAppointment[] | null> {
+    try {
+      return await this.appointment_collection?.find({ user_parent_id: new ObjectId(user_parent_id), confirmed: true }).toArray() as OutputtedAppointment[]
+    } catch (err) {
+      console.log(err)
+      return null;
+    }
+  }
 
-
-
+  async findAllAppointmentsFromOrder(order_id: string, ong_owner_id: string): Promise<OutputtedAppointment[] | null> {
+    try {
+      console.log(order_id)
+      console.log(ong_owner_id)
+      return await this.appointment_collection?.find({order_parent_id: new ObjectId(order_id), ong_parent_id: new ObjectId(ong_owner_id)}).toArray() as OutputtedAppointment[]
+    } catch (err) {
+      console.log(err)
+      return null;
+    }
+  }
 
 
 
@@ -569,7 +587,7 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
       await session.startTransaction();
 
       const appointmentQuery = { _id: new ObjectId(appointment_id), ong_parent_id: new ObjectId(ong_id) }
-      const appointmentUpdate = { $set: { confirmed: true } }
+      const appointmentUpdate = { $set: { confirmed: true, viewed: false } }
 
       const updateWhereOrder = { _id: new ObjectId(order_parent_id) }
       const setOrder = {

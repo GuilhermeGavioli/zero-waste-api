@@ -231,6 +231,9 @@ const getFavorites = async (req: IncomingMessage, res: ServerResponse) => {
 }
 
 
+
+
+
 const getMyLikedPosts = async (req: IncomingMessage, res: ServerResponse) => {
 
     AccessTokenVerification(req, res, async (decoded: any) => { 
@@ -399,6 +402,13 @@ const deleteFavorite = async (req: IncomingMessage, res: ServerResponse) => {
     })
   };
 
+const getmydonations = async (req: IncomingMessage, res: ServerResponse) => {
+    AccessTokenVerification(req, res, async (decoded: any) => { 
+        const foundDocuments = await mongo.findMyCompletedDonations(decoded.id)
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(foundDocuments)) // red
+    })
+}
   
 const getMyOrders = async (req: IncomingMessage, res: ServerResponse) => { 
     AccessTokenVerification(req, res, async (decoded: any) => { 
@@ -407,6 +417,22 @@ const getMyOrders = async (req: IncomingMessage, res: ServerResponse) => {
         return res.end(JSON.stringify(foundDocuments)) // red
     })
 }
+
+const getAppointmentsFromMyOrder = async (req: IncomingMessage, res: ServerResponse) => { 
+    AccessTokenVerification(req, res, async (decoded: any) => {
+        const req_url: any = req.url
+        const parsedUrl = url.parse(req_url);
+        let order_id: any;
+        if (parsedUrl.query) {
+            const queryParams = querystring.parse(parsedUrl.query);
+            order_id = queryParams.order_id;
+        }
+        const appointmentsFromOrder = await appointmentCache.getAppointmentsFromOrder(order_id, decoded.id)
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(appointmentsFromOrder)) // red
+    })
+}
+
 const getMyAppointments = async (req: IncomingMessage, res: ServerResponse) => { 
     AccessTokenVerification(req, res, async (decoded: any) => { 
         const foundAppointments = await appointmentCache.getAppointmentsFromUserId(decoded.id)
@@ -572,7 +598,7 @@ const userswhodonatedtospecificorder = async (req: IncomingMessage, res: ServerR
 
           if (appointment.confirmed) {
             res.writeHead(404, { 'Content-Type': 'text/plain' });
-            return res.end('This appointment has been confirmed already')
+            return res.end('Agendamento já foi confirmado')
           }
 
         //   if (appointment.ong_parent_id !== decoded.id) {
@@ -634,6 +660,9 @@ export const GET = {
     testget,
 
     getMyAppointments,
-    getMostLikedOngs
+    getMostLikedOngs,
+    getAppointmentsFromMyOrder,
+    getmydonations
+
     
 }

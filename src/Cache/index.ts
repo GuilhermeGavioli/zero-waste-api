@@ -79,10 +79,10 @@ export class AppointmentCache{
     }
 
     async getAppointmentById(id: string): Promise<OutputtedAppointment | null> {
-        const cached = this.appointments.find((appointment: OutputtedAppointment) => appointment._id.toString() == id );
-        if (cached){
-            return cached;
-        }
+        // const cached = this.appointments.find((appointment: OutputtedAppointment) => appointment._id.toString() == id );
+        // if (cached){
+        //     return cached;
+        // }
         const database: OutputtedAppointment | null = await mongo.findOneAppointmentById(id)
         if (database){
             this.appointments.push(database)
@@ -109,18 +109,22 @@ export class AppointmentCache{
     
     async getAppointmentByUserIDAndOrderID(user_parent_id: string, order_parent_id: string): Promise<OutputtedAppointment | null> {
 
-        const cached =
-            this.appointments.find((appointment: OutputtedAppointment) => {
-                appointment.user_parent_id.toString() == user_parent_id && appointment.order_parent_id.toString() == order_parent_id
-            });
-        if (cached){
-            return cached;
-        }
+        // const cached =
+        //     this.appointments.find((appointment: OutputtedAppointment) => {
+        //         appointment.user_parent_id.toString() == user_parent_id && appointment.order_parent_id.toString() == order_parent_id
+        //     });
+        // if (cached){
+        //     return cached;
+        // }
         const database = await mongo.findAppointmentByUserIDAndOrderID(user_parent_id, order_parent_id);
         if (database) {            
             return database;
         }
         return null;
+    }
+
+    async getAppointmentsFromOrder(order_id: string, ong_owner_id: string): Promise<OutputtedAppointment[] | null> {
+        return await mongo.findAllAppointmentsFromOrder(order_id, ong_owner_id)
     }
 
 

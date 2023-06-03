@@ -275,10 +275,11 @@ const makeAppointment = async (req: IncomingMessage, res: ServerResponse, body: 
     }
     
       const appointment = await appointmentCache.getAppointmentByUserIDAndOrderID(decoded.id, body.order_parent_id)
-      if (appointment) {
+      if (appointment && !appointment?.confirmed) {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         return res.end('You have done an appointment to this order already')
     }
+
     
     let count = 0;
     inMemoryCounter.appointmentsFromSameUser.forEach((item) => { 
