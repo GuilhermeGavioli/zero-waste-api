@@ -40,6 +40,19 @@ const testpost = async (req: IncomingMessage, res: ServerResponse) => {
 }
 
 
+const viewDonations = async (req: IncomingMessage, res: ServerResponse, body: any) => { 
+  AccessTokenVerification(req, res, async (decoded: any) => { 
+    const worked = await mongo.viewAppointments(body?.ids, decoded.id)
+    if (worked) {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      return res.end()
+    }
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end()
+
+  })
+
+}
 
 
 const createOrder = async (req: IncomingMessage, res: ServerResponse, body: any) => {
@@ -298,17 +311,25 @@ const makeAppointment = async (req: IncomingMessage, res: ServerResponse, body: 
       }
 
     let err;
-    for (let i = 0; i < foundOrder.items.length; i++){
+    let zero_items_count = 0;
+    for (let i = 0; i < donated.length; i++){
       if (body.items[i] > (foundOrder.items[i] - foundOrder.donated[i])) {
         err = true;
         break;
       }
+      if (body.items[i] == 0) zero_items_count++
     }
-
+    
     if (err) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       return res.end('the amount you are aiming to donate does not fit the missing values set by the ONG')
     }
+
+    if (donated.length === zero_items_count) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Nenhuma quantidade foi submetida para o agendamento')
+    }
+
     
       // const adjusted = validateItems(foundOrder.items, foundOrder.donated, body.items)
       // if (adjusted) {
@@ -376,6 +397,7 @@ export const POST = {
   // requestDonation,
   createOrder,
   makeAppointment,
-  testpost
+  testpost,
+  viewDonations
 }
 

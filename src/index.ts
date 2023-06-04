@@ -66,6 +66,9 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
                 else if (URL === '/account/register/user') POST.registerUser(req, res, body);
                 else if (URL === '/account/login/default') POST.loginZeroWaste(req, res, body);
                 else if (URL === '/account/resetpassword') POST.resetPassword(req, res, body);
+                    
+                else if (URL === '/viewDonations') POST.viewDonations(req, res, body);
+                    
                 else if (URL === '/testpost') {
                     POST.testpost(req, res);
                 }
@@ -100,10 +103,14 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
         else if (URL === '/account/register/authentication/mfa') GET.registerValidation(req.url, res)
         else if (URL === '/profileinfo') GET.profile(req, res)
         // else if (URL === '/favorites') GET.addFavorite(req,res)
+
+        //Ongs
+        else if (URL === '/gettenongs') GET.getOngsPack(req.url, res)
         
         // Orders
         else if (URL === '/getordersfrom') GET.getOrdersFromAnOng(req.url, res)
         else if (URL === '/getorderandtime') GET.getSingleOrderAndOngTime(req, res)
+        else if (URL === '/gettenorders') GET.getOrdersPack(req.url, res)
         
         // Appointments
         else if (URL === '/myappointments') GET.getMyAppointments(req, res)
@@ -120,8 +127,9 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
             
             
         else if (URL === '/ongs') GET.getOng(req, res) // public
-        else if (URL === '/myorders') GET.getMyOrders(req, res) // public
-        else if (URL === '/gettenongs') GET.getOngsPack(req.url, res) // donations
+        else if (URL === '/myorders') GET.getMyOrders(req, res)
+        else if (URL === '/gettwolastorders') GET.retrieveLastTwoOrders(res)
+        
 
 
         else if (URL === '/getFiveUsers') GET.getDonationsPack(req.url, res) // donations
@@ -130,6 +138,7 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
         // my donations
         else if (URL === '/confirmdonation') GET.confirmDonation(req, res);
         else if (URL === '/getmydonations') GET.getmydonations(req, res);
+     
         // else if (URL === '/mydonations') GET.myDonations(req, res);
         else if (URL === '/filesystem') {
             // const parsedUrl = url.parse(req.url);

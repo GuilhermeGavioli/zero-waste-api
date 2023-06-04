@@ -495,7 +495,7 @@ export async function insertUsers(): Promise<void> {
                 email: names[i].email,
             phone: `${generateRandonValueBetween(10000000000, 99999999999)}`,
             xp: generateRandonValueBetween(20, 200),
-            password: `Test1234`,
+            password: `123456789`,
             address: 'Praça dos tres Poderes',
             address_state: 'DF',
             address_number: '430',
@@ -513,7 +513,7 @@ export async function insertUsers(): Promise<void> {
 
 
 export async function insertOngs(): Promise<void> {
-    return new Promise((resolve, rej): void => { 
+    return new Promise(async (resolve, rej): Promise<void> => { 
     for (let i =0; i < ong_names.length; i++){
         const ong: any = {
             name: ong_names[i].name,
@@ -532,13 +532,12 @@ export async function insertOngs(): Promise<void> {
             type: 'ong',
             created_at: MyDate.getCurrentDateAndTime()
         };
-        (async ()=>{
-            const ong_id = await mongo.insertOneOng({ ...ong })
-            ong_names[i].id = ong_id
-           
-        })()
+        const ong_id = await mongo.insertOneOng({ ...ong })
+        ong_names[i].id = ong_id
         }
-        resolve()
+        setTimeout(() => {
+            resolve()
+        }, 3000);
     })
 }
 

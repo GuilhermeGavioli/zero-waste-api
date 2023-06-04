@@ -2,6 +2,7 @@
 import { MongoClient, Collection, ObjectId } from 'mongodb';
 import { threadId } from 'node:worker_threads';
 import { OutputtedAppointment, BodyAppointment, OutputtedOrder, BodyOrder, OutputtedOng } from '../../Cache';
+import { MyDate } from '../../Utils/MyDate';
 
 export class Mongo {
   private client: any;
@@ -421,6 +422,55 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
      }
   }
 
+  async retrieveFiveOrders(pack: number): Promise<any[] | null> {
+    try {
+      // const docs = await this.order_collection?.find({}).skip(skip).limit(batchSize).toArray();
+      const query = [
+        { $skip: (pack - 1) * this.pack_size },
+        { $limit: this.pack_size },
+        // { $lookup: {
+        //   from: "ong",
+        //   localField: "owner",
+        //   foreignField: "_id",
+        //   as: "ong"
+        // }},
+        { $addFields: { } },
+        // {
+        //   $project: {
+        //     items: 1,
+        //     donated: 1,
+        //     name: 1,
+        //     expires_in: 1,
+        //     owner: 1,
+        //     ong_name: "$ong.name"
+        //   }
+        // }
+      ];
+      const docs = await this.order_collection?.aggregate(query).toArray()
+      console.log(docs)
+      console.log(docs?.length)
+      if (!docs || docs?.length === 0) return null;
+      return docs;
+    } catch (err) {
+      console.log('Error getting five documents:', err);
+      return null;
+     }
+  }
+
+
+  async retrieveLastTwoOrders(): Promise<any[] | null> {
+    try {
+    const docs = await this.order_collection?.find().sort({ _id: -1 }).limit(3).toArray()
+    if (!docs || docs?.length === 0) return null;
+    return docs;
+  } catch (err) {
+    console.log('Error getting two last orders:', err);
+    return null;
+   }
+  }
+
+
+
   async retrieveUsersWhoDonatedToSpecificOrder(order_id: string): Promise<any[] | null> {
     try {
      
@@ -571,15 +621,32 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
         confirmed: false,
         day: appointment.day,
         time: appointment.time,
-        items: appointment.items
+        items: appointment.items,
+        created_at: MyDate.getCurrentDateAndTime()
       });
       return res.insertedId;
     } catch (err) {
       return null
     }
   }
+
+  async viewAppointments(ids: string[], user_id: string): Promise<boolean> {
+    try {
+      await this.appointment_collection?.updateMany(
+        {
+          _id: { $in: ids.map(id => new ObjectId(id)) },
+          user_parent_id: new ObjectId(user_id)
+        },
+        { $set: { viewed: true } },
+        );
+        return true;
+    } catch (err) {
+      console.log(err)
+      return false;
+    }
+  }
   
-  async updateOrderBasedOnAppointmentConfirmation(appointment_id: string, appointment_items: number[], ong_id: string, order_parent_id: string): Promise<boolean | null> { 
+  async updateOrderBasedOnAppointmentConfirmation(appointment_id: string, appointment_items: number[], ong_id: string, order_parent_id: string, current_date: string): Promise<boolean | null> { 
 
     try {
       //max nao pode ser maior que expectation
@@ -587,7 +654,7 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
       await session.startTransaction();
 
       const appointmentQuery = { _id: new ObjectId(appointment_id), ong_parent_id: new ObjectId(ong_id) }
-      const appointmentUpdate = { $set: { confirmed: true, viewed: false } }
+      const appointmentUpdate = { $set: { confirmed: true, viewed: false, confirmed_at: current_date } }
 
       const updateWhereOrder = { _id: new ObjectId(order_parent_id) }
       const setOrder = {

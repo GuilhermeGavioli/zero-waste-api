@@ -121,7 +121,7 @@ const getSingleOrderAndOngTime = async (req: IncomingMessage, res: ServerRespons
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({order: foundOrder, time: foundOng.working_time }))
+    return res.end(JSON.stringify({order: foundOrder, owner: foundOng }))
 }
 
 
@@ -148,6 +148,13 @@ const getOrdersFromAnOng = async (request_url: string, res: ServerResponse) => {
 
 
 
+const retrieveLastTwoOrders = async (res: ServerResponse) => { 
+    const data: any = await mongo.retrieveLastTwoOrders()
+    console.log('dd')
+    console.log(data)
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(data))
+}
 
 const getDonationsPack = async (request_url: string, res: ServerResponse) => {
     const parsedUrl = url.parse(request_url);
@@ -193,6 +200,27 @@ const getMostLikedOngs = async (req: IncomingMessage, res: ServerResponse) => {
     await Promise.all(ongs);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify(ongs));
+}
+
+const getOrdersPack = async (request_url: string, res: ServerResponse) => { 
+    const parsedUrl = url.parse(request_url);
+    let pack: any;
+    if (parsedUrl.query) {
+        const queryParams = querystring.parse(parsedUrl.query);
+        pack = queryParams.pack;
+    }
+    console.log(pack);
+    // pack = 1;
+
+    const isError = Sanitaze.sanitazePackNumber(pack)
+    if (isError) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Error Sanitazing: ' + isError)
+    }
+    const data: any = await mongo.retrieveFiveOrders(Number(pack))
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({data}))
 }
 
 const getOngsPack = async (request_url: string, res: ServerResponse) => {
@@ -605,8 +633,8 @@ const userswhodonatedtospecificorder = async (req: IncomingMessage, res: ServerR
         //     res.writeHead(404, { 'Content-Type': 'text/plain' });
         //     return res.end('This appointment does not belong to you')
         //   }
-
-      const updated = await mongo.updateOrderBasedOnAppointmentConfirmation(appointment_id, appointment.items, decoded.id, appointment.order_parent_id.toString())
+        
+      const updated = await mongo.updateOrderBasedOnAppointmentConfirmation(appointment_id, appointment.items, decoded.id, appointment.order_parent_id.toString(), MyDate.getCurrentDateAndTime())
         if (!updated) {
             res.writeHead(404);
             return res.end()
@@ -639,6 +667,8 @@ export const GET = {
     // loginOAuth,
     // OAuthCallBack,
     getDonationsPack,
+    retrieveLastTwoOrders,
+
     getFavorites,
     getSingleOrderAndOngTime,
     getOrdersFromAnOng,
@@ -650,12 +680,14 @@ export const GET = {
     unlikeOrder,
     getOng,
     getMyOrders,
-    getOngsPack,
     getMyLikes,
     getMyLikedPosts,
     userswhodonatedtospecificorder,
     deleteMyAppointment,
-    
+
+    getOngsPack,
+    getOrdersPack,
+
     confirmDonation,
     testget,
 
