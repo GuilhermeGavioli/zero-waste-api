@@ -99,6 +99,7 @@ export class Sanitaze{
 
     private static codePathSchema = Joi.string().alphanum().length(255).required();
     private static packNumberSchema = Joi.string().regex(/^[0-9]*$/).min(1).max(3).required();
+    private static MongoIDSchema = Joi.string().regex(/^[a-z0-9]*$/).length(24).required();
 
 
    
@@ -112,6 +113,14 @@ export class Sanitaze{
     // }
     public static sanitazeDonation2(donationObj: any): any | null {
         const { value, error } = Sanitaze.donationSchema2.validate(donationObj)
+        if (error) {
+            return error.details[0].message;
+        } else {
+            return null;
+          }
+     }      
+    public static sanitazeMongoId(id: string): any | null {
+        const { value, error } = Sanitaze.MongoIDSchema.validate(id)
         if (error) {
             return error.details[0].message;
         } else {
@@ -206,6 +215,8 @@ export class Sanitaze{
             return null;
         }
     }
+
+
 }
 
 

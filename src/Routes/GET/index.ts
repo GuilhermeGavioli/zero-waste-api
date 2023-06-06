@@ -19,6 +19,45 @@ const testget = async (req: IncomingMessage, res: ServerResponse) => {
     console.log('ok from testget');
     res.end()
  }
+const getMyInfo = async (req: IncomingMessage, res: ServerResponse) => {
+
+    AccessTokenVerification(req, res, async (decoded: any) => {
+        console.log(decoded)
+        console.log(typeof decoded)
+        if (decoded.type === 'ong') {
+
+            const found = await mongo.findOneOngById(decoded.id.toString())
+            if (!found) {
+                res.writeHead(404, {'Content-Type': 'text/plain'});
+                return res.end('not found')
+            } else {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                return res.end({ info: found })
+            }
+
+        } else if (decoded.type === 'user') {
+
+            const found = await mongo.findOneUserById(decoded.id.toString())
+            if (!found) {
+                res.writeHead(404, {'Content-Type': 'text/plain'});
+                console.log('not found')
+                return res.end('not found')
+            } else {
+                console.log('found')
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify(found))
+            }
+            
+        } else {
+            res.writeHead(404, {'Content-Type': 'text/plain'});
+            return res.end('not found')
+        }
+
+
+     })
+}
+ 
+
 
 const registerValidation = async (request_url: string, res: ServerResponse) => {
     try {
@@ -694,7 +733,8 @@ export const GET = {
     getMyAppointments,
     getMostLikedOngs,
     getAppointmentsFromMyOrder,
-    getmydonations
+    getmydonations,
 
+    getMyInfo
     
 }

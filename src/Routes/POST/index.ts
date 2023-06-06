@@ -116,7 +116,31 @@ const createOrder = async (req: IncomingMessage, res: ServerResponse, body: any)
 
 
 
+const getOngsInfoBasedOnIdsForLikes = async (req: IncomingMessage, res: ServerResponse, body: any) => {
+  if (!body.ids) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('Error Sanitazing: No ongs ids list provided')
+  }
+  try {
+    body.ids.forEach((item: any) => {
+      const isError = Sanitaze.sanitazeMongoId(item)
+      if (isError) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Error Sanitazing: ' + isError)
+      }
+    })
+  } catch (err) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('Error Sanitazing: ' + err)
+  }
 
+  const ongs = await mongo.getManyOngsInfoBasedOnId(body.ids)
+
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(ongs))
+    
+  
+}
 
 
 
@@ -299,9 +323,20 @@ const makeAppointment = async (req: IncomingMessage, res: ServerResponse, body: 
       if (item.user_id === decoded.id) count++;
     })
     
-    if (count >= 2) {
+    // if (count >= 2) {
+    //   res.writeHead(404, { 'Content-Type': 'text/plain' });
+    //   return res.end('Users can only have 2 active appointments')
+    // }
+
+    const user_appointments = await mongo.findAppointmentsFromUserId(decoded.id);
+    let not_confirmed_appointments_count = 0
+    user_appointments?.forEach(item => { 
+      if (!item.confirmed) not_confirmed_appointments_count++;
+    })
+
+    if (not_confirmed_appointments_count >= 2) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
-      return res.end('Users can only have 2 active appointments')
+      return res.end('Users can only have two active appointments')
     }
 
       const foundOrder: OutputtedOrder | null = await orderCache.getOrderById(body.order_parent_id)
@@ -398,6 +433,7 @@ export const POST = {
   createOrder,
   makeAppointment,
   testpost,
-  viewDonations
+  viewDonations,
+  getOngsInfoBasedOnIdsForLikes
 }
 

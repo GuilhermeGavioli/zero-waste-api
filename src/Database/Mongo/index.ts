@@ -90,10 +90,32 @@ async findOneUser(data_object: any): Promise<any | null> {
     }
 
   
+  async getManyOngsInfoBasedOnId(ids: string[]) {
+    try {
+      const objectIds = ids.map(id => new ObjectId(id));
+    const query: any = { _id: { $in: objectIds } };
+    return await this.ong_collection?.find(query).toArray()
+  } catch (err) {
+    console.log(err)
+    return null;
+  }
+  }
 
   async findOneOngById(id: string): Promise<OutputtedOng | null> {
     try {
       return await this.ong_collection?.findOne({ _id: new ObjectId(id) }) as OutputtedOng;
+    } catch (err) {
+      console.log(err)
+      return null;
+    }
+  }
+  
+  async findOneUserById(id: string): Promise<any | null> {
+    try {
+      console.log('idmongo')
+      console.log(id)
+      console.log(typeof id)
+      return await this.user_collection?.findOne({ _id: new ObjectId(id) });
     } catch (err) {
       console.log(err)
       return null;

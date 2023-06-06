@@ -69,6 +69,8 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
                     
                 else if (URL === '/viewDonations') POST.viewDonations(req, res, body);
                     
+                else if (URL === '/getMyLikesOngInfo') POST.getOngsInfoBasedOnIdsForLikes(req, res, body);
+                    
                 else if (URL === '/testpost') {
                     POST.testpost(req, res);
                 }
@@ -95,6 +97,9 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
         //     res.writeHead(403, {'Content-Type': 'text/plain'});
         //     return res.end('No need to specify data in the body');
         // }
+
+        
+        
         if (URL === '/getFive') GET.getDonationsPack(req.url, res) // donations
         else if (URL === '/get/favorites') GET.getFavorites(req, res)
         else if (URL === '/testget') GET.testget(req, res)
@@ -103,6 +108,9 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
         else if (URL === '/account/register/authentication/mfa') GET.registerValidation(req.url, res)
         else if (URL === '/profileinfo') GET.profile(req, res)
         // else if (URL === '/favorites') GET.addFavorite(req,res)
+            
+        // my profile info
+        else if (URL === '/getMyInfo') GET.getMyInfo(req, res)
 
         //Ongs
         else if (URL === '/gettenongs') GET.getOngsPack(req.url, res)
