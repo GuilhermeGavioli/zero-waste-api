@@ -1,15 +1,21 @@
 import { IncomingMessage, ServerResponse } from 'http'
 import url from 'node:url'
+import path from 'node:path'
 import querystring from 'node:querystring'
 import { Sanitaze } from '../../Utils/sanitaze';
+
 import { appointmentCache, mongo, ongCache, orderCache, redis } from '../..';
 import { MyDate } from '../../Utils/MyDate';
 
 import { google } from 'googleapis';
 // import { oauth2Client, scopes } from '../../OAuth/google'
 import { AccessTokenVerification } from '../../Middlewares';
-import {cachedOngs, cachedOrderesForFavorites, cachedUsersWhoDonatedAndDonatedItems, OrderCache} from '../../Cache/index'
+import {cachedOngs, cachedOrderesForFavorites, cachedUsersWhoDonatedAndDonatedItems, OrderCache, OutputtedAppointment} from '../../Cache/index'
 import { ObjectId } from 'mongodb';
+
+import PDFDocument from 'pdfkit'
+import fs from 'fs'
+import { transformArguments } from '@redis/search/dist/commands/AGGREGATE';
 
   
 
@@ -32,7 +38,7 @@ const getMyInfo = async (req: IncomingMessage, res: ServerResponse) => {
                 return res.end('not found')
             } else {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                return res.end({ info: found })
+                return res.end(JSON.stringify(found))
             }
 
         } else if (decoded.type === 'user') {
@@ -57,6 +63,82 @@ const getMyInfo = async (req: IncomingMessage, res: ServerResponse) => {
      })
 }
  
+const fileSystem = async (req: IncomingMessage, res: ServerResponse) => { 
+    if (!req.url) return
+    const pdfParam = req.url.slice('/filesystem/'.length);
+    console.log(pdfParam)
+    if (pdfParam) {
+        // Set the file path to the generated PDF file
+
+        const filePath = path.join(__dirname, `../../filesystem/receipt-${pdfParam}.pdf`);
+        console.log(filePath)
+        // Read the PDF file and send it in the response
+        fs.readFile(filePath, (err, data) => {
+            if (err) {
+                res.statusCode = 404;
+                console.log(err)
+                res.end('PDF not found');
+                return;
+            }
+    
+            res.setHeader('Content-Type', 'application/pdf');
+            res.end(data);
+        })
+    }
+}
+
+const getMyPdf = async (req: IncomingMessage, res: ServerResponse) => {
+   
+    AccessTokenVerification(req, res, async (decoded: any) => {
+
+        const req_url: any = req.url
+        const parsedUrl = url.parse(req_url);
+    let appointment_id: any;
+    if (parsedUrl.query) {
+        const queryParams = querystring.parse(parsedUrl.query);
+        appointment_id = queryParams.appointment_id;
+    }
+    
+        
+    const found: OutputtedAppointment | null = await mongo.findOneAppointmentById(appointment_id)
+    if (!found) return res.end('not found');
+        if (!found.confirmed) return res.end('not confirmed');
+    
+    if (found.user_parent_id.toString() !== decoded.id) return res.end('do not belong');
+    
+    const inserted = await mongo.insertPDF({appointment_parent_id: appointment_id})
+    
+    if (!inserted) return res.end('not ok');
+
+        const generated = await generatePDF(found, inserted.toString())
+        if (generated) {
+            res.writeHead(200);
+            res.end('ok')
+        } else {
+
+            res.end('not ok')
+        }
+
+    // Check if the file exists
+    // if (!fs.existsSync(filePath)) {
+    //   return res.status(404).send('File not found');
+    // }
+  
+    // // Read the file and serve it as a response
+    // fs.readFile(filePath, (err, data) => {
+    //   if (err) {
+    //     console.error('Error reading file:', err);
+    //     return res.status(500).send('Internal Server Error');
+    // }
+    
+    // res.setHeader('Content-Type', 'application/pdf');
+    // res.setHeader('Content-Disposition', `inline; filename=${filename}`);
+    // res.send(data);
+    // });
+    })
+
+}
+
 
 
 const registerValidation = async (request_url: string, res: ServerResponse) => {
@@ -477,6 +559,15 @@ const getmydonations = async (req: IncomingMessage, res: ServerResponse) => {
     })
 }
   
+
+const getMyActiveOrders = async (req: IncomingMessage, res: ServerResponse) => { 
+    AccessTokenVerification(req, res, async (decoded: any) => { 
+        const foundDocuments = await mongo.findAllCompanyOrdersById(decoded.id)
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(foundDocuments)) // red
+    })
+}
+
 const getMyOrders = async (req: IncomingMessage, res: ServerResponse) => { 
     AccessTokenVerification(req, res, async (decoded: any) => { 
         const foundDocuments = await mongo.findAllCompanyOrdersById(decoded.id)
@@ -503,6 +594,16 @@ const getAppointmentsFromMyOrder = async (req: IncomingMessage, res: ServerRespo
 const getMyAppointments = async (req: IncomingMessage, res: ServerResponse) => { 
     AccessTokenVerification(req, res, async (decoded: any) => { 
         const foundAppointments = await appointmentCache.getAppointmentsFromUserId(decoded.id)
+        foundAppointments?.forEach(async appointment => {
+            appointment.order_parent = await orderCache.getOrderById(appointment.order_parent_id.toString())
+        })
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(foundAppointments)) // red
+    })
+}
+const getMyActiveAppointments = async (req: IncomingMessage, res: ServerResponse) => { 
+    AccessTokenVerification(req, res, async (decoded: any) => { 
+        const foundAppointments = await mongo.findActiveAppointmentsFromUserId(decoded.id)
         foundAppointments?.forEach(async appointment => {
             appointment.order_parent = await orderCache.getOrderById(appointment.order_parent_id.toString())
         })
@@ -719,6 +820,7 @@ export const GET = {
     unlikeOrder,
     getOng,
     getMyOrders,
+    getMyActiveOrders,
     getMyLikes,
     getMyLikedPosts,
     userswhodonatedtospecificorder,
@@ -731,10 +833,74 @@ export const GET = {
     testget,
 
     getMyAppointments,
+    getMyActiveAppointments,
+
     getMostLikedOngs,
     getAppointmentsFromMyOrder,
     getmydonations,
+    getMyPdf,
+    getMyInfo,
+    fileSystem
+    
+}
 
-    getMyInfo
+
+
+
+async function generatePDF(found: OutputtedAppointment, inserted: any) {
+
+    return new Promise((resolve, reject) => { 
+
+
+    const doc = new PDFDocument();
+
+    // Write receipt header
+    
+    // Write donor information
+  
+    // Write donation information
+  
+    // Write receipt footer
+  
+    // Save PDF to a file
+    // const filename = `agendamento-${found._id}.pdf`;
+    // const filePath = path.resolve(`../${filename}`);
+    // const file_path = path.resolve(__dirname, filename)
+    // doc.pipe(fs.createWriteStream(filePath));
+    // doc.end();
+    
+    // Pipe the PDF content to a writable stream
+    
+    const filePath = path.join(__dirname, `../../filesystem/receipt-${inserted}.pdf`);
+ 
+    const stream = fs.createWriteStream(filePath);
+    doc.pipe(stream);
+    doc.fontSize(20).text('Donation Receipt', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(12).text(`Donator: ${found.user_parent_id}`);
+    doc.fontSize(12).text(`Para: ${found.ong_parent_id}`);
+    doc.fontSize(12).text(`Itens: ${found.items}`);
+    doc.moveDown();
+    doc.fontSize(12).text(`Date: ${MyDate.getCurrentDateAndTime()}`);
+    doc.moveDown();
+    doc.fontSize(10).text('Thank you for your support!', { align: 'center' });
+    doc.end();
+
+    // Finalize the PDF
+
+    // Handle the finish event
+    stream.on('finish', () => {
+        console.log('PDF created successfully.');
+        resolve(true)
+    });
+    
+    // Handle errors
+    doc.on('error', (err) => {
+        console.error('Error creating PDF:', err);
+        reject()
+    });
+        
+    })
+  
     
 }

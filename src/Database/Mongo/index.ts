@@ -12,6 +12,7 @@ export class Mongo {
   private order_collection?: Collection;
   private donation_collection?: Collection;
   private appointment_collection?: Collection;
+  private pdf_collection?: Collection;
   private TTL: number = 15 * 60 // 15 min
   private pack_size: number = 10;
   private ong_public_projection: {} = {
@@ -46,6 +47,7 @@ export class Mongo {
       this.order_collection = await this.db.collection(process.env.MONGODB_ORDER_COLLECTION);
       this.donation_collection = await this.db.collection(process.env.MONGODB_DONATION_COLLECTION);
       this.appointment_collection = await this.db.collection(process.env.MONGODB_APPOINTMENT_COLLECTION);
+      this.pdf_collection = await this.db.collection(process.env.MONGODB_PDF_COLLECTION);
   }
   
   // USER
@@ -651,6 +653,14 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
       return null
     }
   }
+  async insertPDF(pdf: any): Promise<ObjectId | null> {
+    try {
+      const res: any = await this.pdf_collection?.insertOne(pdf);
+      return res.insertedId;
+    } catch (err) {
+      return null
+    }
+  }
 
   async viewAppointments(ids: string[], user_id: string): Promise<boolean> {
     try {
@@ -666,6 +676,80 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
       console.log(err)
       return false;
     }
+  }
+  async updateOrderBasedOnAppointmentConfirmation2(appointment_id: string, appointment_items: number[], ong_id: string, order_parent_id: string, current_date: string): Promise<boolean | null> {
+        const session = await this.client.startSession();
+      await session.startTransaction();
+
+      const appointmentQuery = { _id: new ObjectId(appointment_id), ong_parent_id: new ObjectId(ong_id) };
+      const appointmentUpdate = { $set: { confirmed: true, viewed: false, confirmed_at: current_date } };
+
+      const updateWhereOrder = { _id: new ObjectId(order_parent_id) };
+      const setOrder = {
+        $set: {
+          donated: {
+            $map: {
+              input: { $zip: { inputs: ["$donated", appointment_items], useLongestLength: true } },
+              in: { $add: [{ $ifNull: [{ $arrayElemAt: ["$$this", 0] }, 0] }, { $ifNull: [{ $arrayElemAt: ["$$this", 1] }, 0] }] }
+            }
+          }
+        }
+      };
+
+      const checkDonatedValues = {
+        $expr: {
+          $eq: [
+            { $size: "$order_items" },
+            {
+              $size: {
+                $filter: {
+                  input: {
+                    $map: {
+                      input: { $zip: { inputs: ["$order_items", "$donated"], useLongestLength: true } },
+                      in: {
+                        $gte: [
+                          { $ifNull: [{ $arrayElemAt: ["$$this", 0] }, 0] },
+                          { $ifNull: [{ $arrayElemAt: ["$$this", 1] }, 0] }
+                        ]
+                      }
+                    }
+                  },
+                  as: "values",
+                  cond: { $eq: ["$$values", true] }
+                }
+              }
+            }
+          ]
+        }
+      };
+
+      try {
+        // set appointment to confirmed: true
+        await this.appointment_collection?.updateOne(appointmentQuery, appointmentUpdate);
+
+        // update order donated values
+        await this.order_collection?.updateOne(
+          updateWhereOrder,
+          [setOrder]
+        );
+
+        // check if all order items are equal to or greater than donated items
+        const result = await this.order_collection?.findOne({ _id: new ObjectId(order_parent_id), checkDonatedValues });
+        const allItemsMatch = result !== null;
+
+        if (allItemsMatch) {
+          console.log('FECHOU DOAÇAO')
+          // Increase user level logic here
+        }
+
+        await session.commitTransaction();
+        await session.endSession();
+        return true
+      } catch (error) {
+        await session.abortTransaction();
+        await session.endSession();
+        throw error;
+      }
   }
   
   async updateOrderBasedOnAppointmentConfirmation(appointment_id: string, appointment_items: number[], ong_id: string, order_parent_id: string, current_date: string): Promise<boolean | null> { 
@@ -695,10 +779,42 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
         await this.appointment_collection?.updateOne(appointmentQuery, appointmentUpdate);
 
         // update order donated values
-        await this.order_collection?.updateOne(
+        const result: any = await this.order_collection?.findOneAndUpdate(
           updateWhereOrder,
-          [ setOrder ]
+          [setOrder],
         );
+
+        const updatedDocument = result.value; // document before update
+
+          // items = 10, 10
+        // doando = 5, 1 
+        // doado = 5, 5
+        
+        
+        // 10, 6
+        let completed = true;
+        for (let i = 0; i < appointment_items.length; i++){
+          // console.log('i: ' + i + ' ' + updatedDocument.donated[i] + ' ' + appointment_items[i], + ' ' + updatedDocument.items)
+          const final_donation_item = updatedDocument.donated[i] + appointment_items[i];
+          if (final_donation_item < updatedDocument.items[i]) {
+            completed = false;
+          }
+        }
+           
+        if (completed) {
+          await this.order_collection?.findOneAndUpdate(
+            { _id: new ObjectId(updatedDocument._id.toString()) },
+            [{ $set: {over: true} }],
+          )
+        
+        
+          // Increase user level logic here
+          console.log('match \n')
+          console.log('match \n')
+          console.log('match \n')
+          console.log('match \n')
+          console.log('match \n')
+        }
         
         // increase user level;
 
@@ -744,6 +860,14 @@ async findAppointmentByUserIDAndOrderID(user_parent_id: string, order_parent_id:
       console.log('d')
       console.log(d)
       return d
+    } catch (err) {
+      console.log(err)
+      return null;
+    }
+}
+  async findActiveAppointmentsFromUserId(user_id: string): Promise<OutputtedAppointment[] | null> {
+    try {
+      return await this.appointment_collection?.find({ user_parent_id: new ObjectId(user_id), confirmed: false }).toArray() as OutputtedAppointment[];  
     } catch (err) {
       console.log(err)
       return null;

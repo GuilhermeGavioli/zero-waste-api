@@ -45,6 +45,7 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
     // console.log('ipaddress: ' + xForwardedFor)
     const URL = parsedUrl.pathname;
     console.log(URL)
+    console.log(URL?.substring(0,10))
 
     if (METHOD === 'POST') {
         const contentLength = req.headers['content-length']
@@ -122,6 +123,7 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
         
         // Appointments
         else if (URL === '/myappointments') GET.getMyAppointments(req, res)
+        else if (URL === '/myactiveappointments') GET.getMyActiveAppointments(req, res)
         else if (URL === '/delete/myappointment') GET.deleteMyAppointment(req, res)
         else if (URL === '/getAppointmentsFromMyOrder') GET.getAppointmentsFromMyOrder(req, res)
             
@@ -136,6 +138,7 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
             
         else if (URL === '/ongs') GET.getOng(req, res) // public
         else if (URL === '/myorders') GET.getMyOrders(req, res)
+        else if (URL === '/myactiveorders') GET.getMyActiveOrders(req, res)
         else if (URL === '/gettwolastorders') GET.retrieveLastTwoOrders(res)
         
 
@@ -148,23 +151,10 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
         else if (URL === '/getmydonations') GET.getmydonations(req, res);
      
         // else if (URL === '/mydonations') GET.myDonations(req, res);
-        else if (URL === '/filesystem') {
-            // const parsedUrl = url.parse(req.url);
-            // let resource: any;
-            // if (parsedUrl.query) {
-            //     const queryParams = querystring.parse(parsedUrl.query);
-            //     resource = queryParams.resource;
-            // }
-            // console.log(resource);
-            // const found = assets.find(el => { return el.name === resource })
-            // if (found) {
-            //     res.setHeader('Content-Type', 'image/png');
-            //     return res.end(found.data);   
-            // }
-            // res.setHeader('Content-Type', 'text/plain');
-            // return res.end('resource not found'); 
-            
-        }
+        else if (URL === '/generatePDF') GET.getMyPdf(req, res)
+        else if (URL?.substring(0, 11) === '/filesystem' || URL?.substring(0, 12) === '/filesystem/') GET.fileSystem(req, res)
+        
+       
         else {
             console.log('route not found')
             res.writeHead(403, {'Content-Type': 'text/plain'});
