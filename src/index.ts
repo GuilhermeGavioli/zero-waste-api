@@ -118,8 +118,12 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
         
         // Orders
         else if (URL === '/getordersfrom') GET.getOrdersFromAnOng(req.url, res)
+        else if (URL === '/getactiveordersfrom') GET.getActiveOrdersFromAnOng(req.url, res)
         else if (URL === '/getorderandtime') GET.getSingleOrderAndOngTime(req, res)
         else if (URL === '/gettenorders') GET.getOrdersPack(req.url, res)
+        else if (URL === '/myorders') GET.getMyOrders(req, res)
+        else if (URL === '/myactiveorders') GET.getMyActiveOrders(req, res)
+        else if (URL === '/gettwolastorders') GET.retrieveLastTwoOrders(res)
         
         // Appointments
         else if (URL === '/myappointments') GET.getMyAppointments(req, res)
@@ -137,9 +141,6 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
             
             
         else if (URL === '/ongs') GET.getOng(req, res) // public
-        else if (URL === '/myorders') GET.getMyOrders(req, res)
-        else if (URL === '/myactiveorders') GET.getMyActiveOrders(req, res)
-        else if (URL === '/gettwolastorders') GET.retrieveLastTwoOrders(res)
         
 
 

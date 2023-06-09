@@ -252,12 +252,27 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
       return null;
     }
   }
+  async findAllActiveCompanyOrdersById(ong_id: string): Promise<OutputtedOrder[] | null> { // max five
+    try {
+      // const query = [
+      //   { $where: data_object }
+      // ];
+      const docs = await this.order_collection?.find({owner: new ObjectId(ong_id), over: false }).toArray()
+
+      // const docs = await this.order_collection?.aggregate(query).toArray()
+      if (!docs || docs?.length === 0) return null;
+      return docs as OutputtedOrder[];
+    } catch (err) {
+      console.log('Error findind all company orders document:', err);
+      return null;
+    }
+  }
   // max of five per company
   
   async insertOneOrder(order: BodyOrder): Promise<ObjectId | null> {
     try {
       console.log(order)
-      const res: any = await this.order_collection?.insertOne(order);
+      const res: any = await this.order_collection?.insertOne({ ...order, over: false });
       return res.insertedId;
     } catch (err) {
       console.log('Error inserting document:', err);
@@ -806,14 +821,6 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
             { _id: new ObjectId(updatedDocument._id.toString()) },
             [{ $set: {over: true} }],
           )
-        
-        
-          // Increase user level logic here
-          console.log('match \n')
-          console.log('match \n')
-          console.log('match \n')
-          console.log('match \n')
-          console.log('match \n')
         }
         
         // increase user level;

@@ -27,8 +27,8 @@ export class Sanitaze{
 
     private static orderSchema2 = Joi.object({
         // ong_id = 
-        name: Joi.string().regex(/^[a-zA-Z0-9 ]*$/).min(4).max(50).required(),
-        description: Joi.string().regex(/^[a-zA-Z,-.! ]*$/).min(85).max(400).required(), // new
+        name: Joi.string().regex(/^[a-zA-Z0-9ç ]*$/).min(4).max(50).required(),
+        description: Joi.string().regex(/^[a-zA-Z,-.ç! ]*$/).min(85).max(400).required(), // new
         // items: Joi.object({
         //     conserva: Joi.number().integer().min(0).max(150).required(),
         //     brinquedo: Joi.number().integer().min(0).max(150).required(),

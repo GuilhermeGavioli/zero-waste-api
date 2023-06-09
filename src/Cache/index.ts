@@ -185,6 +185,7 @@ export interface OutputtedOrder{
     expires_in: string;
     owner: string;
     created_at: any;
+    over?: boolean;
 }
 
 export class OrderCache{

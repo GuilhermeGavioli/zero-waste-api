@@ -245,6 +245,25 @@ const getSingleOrderAndOngTime = async (req: IncomingMessage, res: ServerRespons
     return res.end(JSON.stringify({order: foundOrder, owner: foundOng }))
 }
 
+const getActiveOrdersFromAnOng = async (request_url: string, res: ServerResponse) => { 
+    const parsedUrl = url.parse(request_url);
+    if (parsedUrl.query) {
+    const queryParams = querystring.parse(parsedUrl.query);
+    const ong_id  = queryParams.ong_id;
+        if (!ong_id) {
+            res.writeHead(400, {'Content-Type': 'text/plain'});
+            return res.end('ong id not specified')
+        }
+        console.log(ong_id)
+        // TODO: sanitaze ong id
+        
+        
+        const ordersFound = await mongo.findAllActiveCompanyOrdersById(ong_id.toString())
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(ordersFound))
+        
+    }
+}
 
 const getOrdersFromAnOng = async (request_url: string, res: ServerResponse) => {
     const parsedUrl = url.parse(request_url);
@@ -259,7 +278,7 @@ const getOrdersFromAnOng = async (request_url: string, res: ServerResponse) => {
         // TODO: sanitaze ong id
         
         
-        const ordersFound = await orderCache.getOrderByOwnerId(ong_id.toString())
+        const ordersFound = await mongo.findAllCompanyOrdersById(ong_id.toString())
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify(ordersFound))
         
@@ -562,7 +581,7 @@ const getmydonations = async (req: IncomingMessage, res: ServerResponse) => {
 
 const getMyActiveOrders = async (req: IncomingMessage, res: ServerResponse) => { 
     AccessTokenVerification(req, res, async (decoded: any) => { 
-        const foundDocuments = await mongo.findAllCompanyOrdersById(decoded.id)
+        const foundDocuments = await mongo.findAllActiveCompanyOrdersById(decoded.id)
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify(foundDocuments)) // red
     })
@@ -840,7 +859,8 @@ export const GET = {
     getmydonations,
     getMyPdf,
     getMyInfo,
-    fileSystem
+    fileSystem,
+    getActiveOrdersFromAnOng
     
 }
 

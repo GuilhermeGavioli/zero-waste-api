@@ -69,30 +69,6 @@ const createOrder = async (req: IncomingMessage, res: ServerResponse, body: any)
       return res.end('Only ONG accounts can request for donations')
     }
 
-    const mongo_object_id = new ObjectId(decoded.id)
-    const foundOng = await mongo.findOneOngById(decoded.id)
-    if (!foundOng) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      console.log('ong not found')
-      return res.end('ONG not found')
-    }
-   
-    let count = 0;
-    inMemoryCounter.ordersFromSameOng.forEach((item) => { 
-      if (item.owner_id === decoded.id) count++;
-    })
-
-    if (count >= 2) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      return res.end('ONGs can have a maximun of two active orders')
-    }
-
-    body.expires_in = MyDate.getFutureDate(body.expires_in)
-    // const orderedItems: any = {};
-    // Object.keys(body.items).sort().forEach(key => {
-    //   orderedItems[key] = body.items[key];
-    // });
-    // body.items = orderedItems
     let total_of_zeros = 0
     for (let i = 0; i < body.items.length; i++) { 
       if (body.items[i] === 0) total_of_zeros++;
@@ -101,6 +77,23 @@ const createOrder = async (req: IncomingMessage, res: ServerResponse, body: any)
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       return res.end('You must provide at least one item to be donated');
     }
+
+    const mongo_object_id = new ObjectId(decoded.id)
+    const foundOng = await mongo.findOneOngById(decoded.id)
+    if (!foundOng) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      console.log('ong not found')
+      return res.end('ONG not found')
+    }
+   
+    const foundOrders: any | null = await mongo.findAllActiveCompanyOrdersById(decoded.id)
+    if (foundOrders?.length > 2) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Ongs can only have two active Donations')
+    }
+    
+
+    body.expires_in = MyDate.getFutureDate(body.expires_in)
 
     const inserted_id = await orderCache.insertOrder({ ...body, donated, created_at: MyDate.getCurrentDateAndTime(), owner: mongo_object_id })
 
@@ -315,35 +308,28 @@ const makeAppointment = async (req: IncomingMessage, res: ServerResponse, body: 
       if (appointment && !appointment?.confirmed) {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         return res.end('You have done an appointment to this order already')
-    }
+      }
 
     
-    let count = 0;
-    inMemoryCounter.appointmentsFromSameUser.forEach((item) => { 
-      if (item.user_id === decoded.id) count++;
-    })
     
-    // if (count >= 2) {
-    //   res.writeHead(404, { 'Content-Type': 'text/plain' });
-    //   return res.end('Users can only have 2 active appointments')
-    // }
-
-    const user_appointments = await mongo.findAppointmentsFromUserId(decoded.id);
-    let not_confirmed_appointments_count = 0
-    user_appointments?.forEach(item => { 
-      if (!item.confirmed) not_confirmed_appointments_count++;
-    })
-
-    if (not_confirmed_appointments_count >= 2) {
+      // Check if the user has more than two active appointments 
+    const user_appointments: any | null = await mongo.findActiveAppointmentsFromUserId(decoded.id);
+    
+    if (user_appointments?.length > 2) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       return res.end('Users can only have two active appointments')
     }
-
+ 
       const foundOrder: OutputtedOrder | null = await orderCache.getOrderById(body.order_parent_id)
       if (!foundOrder) {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         return res.end('Order not found')
-      }
+    }
+    
+    if (foundOrder?.over) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Order already completed')
+    }
 
     let err;
     let zero_items_count = 0;
