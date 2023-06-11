@@ -18,7 +18,7 @@ import { AccessTokenVerification } from '../../Middlewares';
 
 import { mongo, appointmentCache, orderCache, ongCache } from '../../index'
 
-
+import {Mail, sendMail} from '../../Utils/Mail'
 import {cachedOrderesForFavorites, OutputtedOng, OutputtedOrder} from '../../Cache/index'
 // import { oauth2Client, scopes } from '../../OAuth/google'
 
@@ -31,13 +31,6 @@ export const donated = [
   0,
   0,
 ]
-
-const testpost = async (req: IncomingMessage, res: ServerResponse) => { 
- 
-  res.writeHead(303, { 'Content-Type': 'text/plain', 'location': 'http://localhost:3000/testget' });
-  // res.writeHead(200, { 'Content-Type': 'text/plain' });
-  return res.end('ok')
-}
 
 
 const viewDonations = async (req: IncomingMessage, res: ServerResponse, body: any) => { 
@@ -54,6 +47,113 @@ const viewDonations = async (req: IncomingMessage, res: ServerResponse, body: an
 
 }
 
+
+const changeInfo = async (req: IncomingMessage, res: ServerResponse, body: any) => {
+  AccessTokenVerification(req, res, async (decoded: any) => {
+    const isError = Sanitaze.sanitazeUserChange(body)
+    if (isError) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Error Sanitazing: ' + isError)
+    }
+
+    if (body.password && !body.confirm_password) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Campo de Confirmaçao de Senha nao provida.')
+    }
+
+    if (body.password !== body.confirm_password) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Senhas não são iguais.')
+    }
+
+    const found = await mongo.findOneUserById(decoded.id)
+    if (!found) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Conta não encontrada.')
+    }
+
+    const updateObject: any = {};
+    if (body.name) {
+      updateObject.name = body.name;
+    }
+    if (body.password) {
+      updateObject.password = body.password;
+    }
+    
+    
+    const updated = await mongo.updateOneUser(decoded.id, updateObject)
+    if (updated) {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      return res.end()
+    } 
+
+    res.writeHead(500, { 'Content-Type': 'text/plain' });
+    return res.end('Erro inesperado')
+
+
+  })
+}
+
+const deleteAccount = async (req: IncomingMessage, res: ServerResponse, body: any) => {
+  AccessTokenVerification(req, res, async (decoded: any) => { 
+    if (decoded.type === 'user') {
+      const isError = Sanitaze.sanitazePassword(body)
+      if (isError) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Error Sanitazing: ' + isError)
+      }
+
+      const found = await mongo.findOneUserById(decoded.id)
+      if (!found) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Conta não encontrada ou já foi deletada.')
+      }
+
+      if (found.password !== body.password) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Senha incorreta.')
+      }
+
+      const deleted = await mongo.deleteOneUserById(decoded.id)
+      if (!deleted) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Algo deu Errado: Erro inesperado ao deletar seu histórico')
+      }
+
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      return res.end()
+      
+    } else if (decoded.type === 'ong') {
+
+      const isError = Sanitaze.sanitazePassword(body)
+      if (isError) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Error Sanitazing: ' + isError)
+      }
+
+      const found: any = await mongo.findOneOngById(decoded.id)
+      if (!found) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Conta não encontrada ou já foi deletada.')
+      }
+
+      if (found.password !== body.password) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Senha incorreta.')
+      }
+
+      const deleted = await mongo.deleteOneOngById(decoded.id)
+      if (!deleted) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Algo deu Errado: Erro inesperado ao deletar seu histórico')
+      }
+
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      return res.end()
+      
+    }
+  })
+}
 
 const createOrder = async (req: IncomingMessage, res: ServerResponse, body: any) => {
   AccessTokenVerification(req, res, async (decoded: any) => {
@@ -137,7 +237,21 @@ const getOngsInfoBasedOnIdsForLikes = async (req: IncomingMessage, res: ServerRe
 
 
 
- 
+const ipCounts = new Map();
+
+function protectionAgainstEmailSpam(ip: string): boolean{
+  if (ipCounts.has(ip)) {
+    const count = ipCounts.get(ip);
+    
+    if (count >= 2) return false
+    ipCounts.set(ip, count + 1);
+    return true;
+
+  } else {
+    ipCounts.set(ip, 1);
+    return true;
+  }
+}
 
 const registerUser = async (req: IncomingMessage, res: ServerResponse, body: any) => {
   const isError = Sanitaze.sanitazeUser(body)
@@ -145,16 +259,40 @@ const registerUser = async (req: IncomingMessage, res: ServerResponse, body: any
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       return res.end('Error Sanitazing: ' + isError)
   }
-  const UserOrOngFound = await mongo.findOneOngOrUserWhereOR(body);
-  if (UserOrOngFound) {
+
+  if (body.password !== body.confirm_password) {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
-    return res.end('Entity already exists')
+    return res.end('Senhas não são iguais.')
   }
+
+  const userFound = await mongo.findOneOngOrUserByEmail(body.email);
+  if (userFound) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('User already exists')
+  }
+
   const path = GenerateLinkCode.generatePath()
   const saved = await redis.storeVerification(path, { ...body, type: 'user', xp: 0 });
   if (!saved) {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
     return res.end('Error while saving your log')
+  }
+
+  const ipAddress = req.connection.remoteAddress;
+  if (!ipAddress) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('IP não consta na requisicão')
+  }
+  const isSpammed = protectionAgainstEmailSpam(ipAddress);
+  if (isSpammed) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('Aguarde um pouco até que voce possa receber outro Email')
+  }
+
+  const sent = await sendMail({ to: body.email, link: path})
+  if (!sent) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('Erro inesperado ao enviar email de confirmação')
   }
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   return res.end(`We will sent an email with a verification link \n ${path}`) // TODO: Sent an email
@@ -236,6 +374,8 @@ const registerOng = async (req: IncomingMessage, res: ServerResponse, body: any)
 
 
 const loginZeroWaste = async (req: IncomingMessage, res: ServerResponse, body: any) => {
+  try {
+    
 
   const isError = Sanitaze.sanitazeLoginInfo(body)
     if (isError) {
@@ -244,18 +384,12 @@ const loginZeroWaste = async (req: IncomingMessage, res: ServerResponse, body: a
   }
   
   // const foundEntity = await mongo.findOneOngOrUserWhereOR({ email: body.email, cnpj: '', phone: '' });
-  const foundEntity = await mongo.findOneOngOrUserWhereOR({ email: body.email });
-
-  if (!foundEntity) {
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    return res.end('Account does not exist')
-  }
+  const foundEntity = await mongo.findOneOngOrUserByEmail(body.email);
+  console.log(foundEntity)
+  if (!foundEntity) throw new Error('Account does not exist')
+  if (body.password !== foundEntity.password) throw new Error('Passwords does not match')
   
-  if (body.password !== foundEntity.password) {
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    return res.end('Passwords does not match')
-  }
-
+  
   const token = jwt.sign({
     id: foundEntity._id.toString(),
     name: foundEntity.name,
@@ -281,7 +415,11 @@ const loginZeroWaste = async (req: IncomingMessage, res: ServerResponse, body: a
   const cookie2 = `user=${JSON.stringify(user_info)}; Path=/; Expires=${expires.toUTCString()}`
   res.setHeader('Set-Cookie', [cookie1, cookie2]);
   res.statusCode = 200;
-  return res.end(JSON.stringify({ ...user_info, email: null}));
+    return res.end(JSON.stringify({ ...user_info, email: null }));
+  } catch (err) {
+    res.writeHead(404, {'Content-Type': 'plain/text'});
+    return res.end(`${err}`)
+  }
 };
 
 const resetPassword = (req: IncomingMessage, res: ServerResponse, body: any) => {
@@ -418,8 +556,9 @@ export const POST = {
   // requestDonation,
   createOrder,
   makeAppointment,
-  testpost,
   viewDonations,
-  getOngsInfoBasedOnIdsForLikes
+  getOngsInfoBasedOnIdsForLikes,
+  changeInfo,
+  deleteAccount
 }
 

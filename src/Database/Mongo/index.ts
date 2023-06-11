@@ -75,8 +75,21 @@ async findOneUser(data_object: any): Promise<any | null> {
     } catch (err) {
       console.log('Error finding document:', err);
     }
-}
+  }
+  
+  
 
+  
+async updateOneUser(id: string, updateObj: any): Promise<boolean | null> {
+  try {
+    console.log(updateObj)
+     await this.user_collection?.updateOne({_id: new ObjectId(id)}, { $set: updateObj });
+    return true;
+  } catch (err) {
+    console.log('Error updating user document:', err);
+    return null
+  }
+}
 
   // ONG
   async insertOneOng(data_object: any): Promise<ObjectId | null> {
@@ -132,11 +145,48 @@ async findOneUser(data_object: any): Promise<any | null> {
     } catch (err) {
       console.log('Error finding document:', err);
     }
+  }
+  
+
+  
+async deleteOneUserById(id: string): Promise<any | null> {
+  const session = await this.client.startSession()
+    try {
+      await session.startTransaction();
+
+      const mongodbID = new ObjectId(id)
+      await this.user_collection?.deleteOne({ _id: mongodbID })
+      await this.appointment_collection?.deleteMany({user_parent_id: mongodbID })
+      await session.commitTransaction();
+      await session.endSession();
+      return true;
+    } catch (err) {
+      await session.abortTransaction();
+      console.log('Error finding document:', err);
+      return null
+    }
+}
+async deleteOneOngById(id: string): Promise<any | null> {
+  const session = await this.client.startSession()
+    try {
+      await session.startTransaction();
+
+      const mongodbID = new ObjectId(id)
+      await this.ong_collection?.deleteOne({ _id: mongodbID })
+      await this.order_collection?.deleteMany({ owner: mongodbID })
+      await this.appointment_collection?.deleteMany({ ong_parent_id: mongodbID })
+      await session.commitTransaction();
+      await session.endSession();
+      return true;
+    } catch (err) {
+      await session.abortTransaction();
+      console.log('Error finding document:', err);
+      return null
+    }
 }
 
   // used to verify if user or ong exists during registering process
 async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
-    console.log(data_object)
     const session = await this.client.startSession()
     try {
       await session.startTransaction();
@@ -168,6 +218,31 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
       console.log('Error finding document:', err);
     }
 }
+
+  async findOneOngOrUserByEmail(email: string): Promise<any | null>  {
+    const session = await this.client.startSession()
+    try {
+      await session.startTransaction();
+      
+      const foundOng = await this.ong_collection?.findOne({ email: email });
+      console.log(foundOng)
+      if (foundOng) {
+        await session.commitTransaction();
+        await session.endSession();
+        return foundOng;
+      } else {
+        const foundUser = await this.user_collection?.findOne({ email: email });
+        console.log(foundUser)
+        await session.commitTransaction();
+        await session.endSession();
+        return foundUser;
+      }
+    //   console.log(`Inserted document with _id: ${result.insertedId}`);
+    } catch (err) {
+      await session.abortTransaction();
+      return null;
+    }
+  }
 
   
   async findOneOngWhere(object: any): Promise<OutputtedOng | null> {

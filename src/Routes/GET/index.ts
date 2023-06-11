@@ -24,44 +24,40 @@ const blackList: string[] = [] //code_path
 const testget = async (req: IncomingMessage, res: ServerResponse) => {
     console.log('ok from testget');
     res.end()
- }
+}
+ 
 const getMyInfo = async (req: IncomingMessage, res: ServerResponse) => {
 
     AccessTokenVerification(req, res, async (decoded: any) => {
-        console.log(decoded)
-        console.log(typeof decoded)
+    
         if (decoded.type === 'ong') {
-
-            const found = await mongo.findOneOngById(decoded.id.toString())
+            const found = await mongo.findOneOngById(decoded.id)
             if (!found) {
-                res.writeHead(404, {'Content-Type': 'text/plain'});
-                return res.end('not found')
+                throw new Error("Instituição não encontrada");
             } else {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 return res.end(JSON.stringify(found))
             }
 
         } else if (decoded.type === 'user') {
-
-            const found = await mongo.findOneUserById(decoded.id.toString())
+            const found = await mongo.findOneUserById(decoded.id)
             if (!found) {
-                res.writeHead(404, {'Content-Type': 'text/plain'});
-                console.log('not found')
-                return res.end('not found')
+                throw new Error("Usuario não encontrado");
             } else {
-                console.log('found')
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 return res.end(JSON.stringify(found))
             }
             
-        } else {
-            res.writeHead(404, {'Content-Type': 'text/plain'});
-            return res.end('not found')
         }
+        throw new Error("Entidade não encontrada");
+        
 
 
      })
 }
+
+
+
  
 const fileSystem = async (req: IncomingMessage, res: ServerResponse) => { 
     if (!req.url) return
@@ -181,18 +177,27 @@ const registerValidation = async (request_url: string, res: ServerResponse) => {
                 }
 
                 res.writeHead(200, {'Content-Type': 'text/plain'});
-                return res.end('Welcome, Successfully created!')
+                return res.end()
 
             }
             
 
          
-            // } else if (entity.type === 'user') {
-            //     const inserted_id = await mongo.insertOneUser({ ...entity, created_at: MyDate.getCurrentDateAndTime() });
-            //     if (!inserted_id) {
-            //         res.writeHead(404, { 'Content-Type': 'text/plain' });
-            //         return res.end('Something went wrong 2 ')
-            //     }
+            else if (parsedEntity.type === 'user') {
+                const foundUser = await mongo.findOneOngOrUserByEmail(parsedEntity.email)
+                if (foundUser) {
+                    res.writeHead(404, { 'Content-Type': 'text/plain' });
+                    return res.end('User is created already')
+                }
+
+                const inserted_id = await mongo.insertOneUser({ ...parsedEntity, created_at: MyDate.getCurrentDateAndTime() });
+                if (!inserted_id) {
+                    res.writeHead(404, { 'Content-Type': 'text/plain' });
+                    return res.end('Something went wrong 2 ')
+                }
+                res.writeHead(200, {'Content-Type': 'text/plain'});
+                return res.end('Welcome, Successfully created!')
+             }
          
 
             res.writeHead(400, {'Content-Type': 'text/plain'});

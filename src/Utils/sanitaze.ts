@@ -79,13 +79,24 @@ export class Sanitaze{
         // username: Joi.string().regex(/^[a-zA-Z ]*$/).min(3).max(40).required(),
         // phone: Joi.string().length(11).regex(/^[0-9]*$/).required(), // NNNNNNNNN NNNNN-NNNN
         email: Joi.string().email().min(6).max(113).required(),
-        password: Joi.string().regex(/^[a-zA-Z0-9 ]*$/).min(8).max(50).required(),
-        address: Joi.string().regex(/^[a-zA-Z0-9, ]*$/).min(5).max(80).required(),
+        password: Joi.string().regex(/^[a-zA-Z0-9!@#$%&*,.ç ]*$/).min(8).max(50).required(),
+        confirm_password: Joi.string().regex(/^[a-zA-Z0-9!@#$%&*,.ç ]*$/).min(8).max(50).required(),
+    })
+    
+    private static passwordSchema = Joi.object({
+        password: Joi.string().regex(/^[a-zA-Z0-9!@#$%&*,.ç ]*$/).min(8).max(50).required(),
+    })
+    
+    private static changeUserSchema = Joi.object({
+        name: Joi.string().regex(/^[a-zA-Z ]*$/).min(3).max(40),
+        password: Joi.string().regex(/^[a-zA-Z0-9!@#$%&*,.ç ]*$/).min(8).max(50),
+        confirm_password: Joi.string().regex(/^[a-zA-Z0-9!@#$%&*,.ç ]*$/).min(8).max(50),
     })
 
     private static loginSchema = Joi.object({
         email: Joi.string().email().min(6).max(113).required(),
-        password: Joi.string().regex(/^[a-zA-Z0-9 ]*$/).min(8).max(50).required(),
+        password: Joi.string().regex(/^[a-zA-Z0-9!@#$%&*,.ç ]*$/).min(8).max(50).required(),
+
     })
 
     private static messageSchema = Joi.object({
@@ -173,6 +184,23 @@ export class Sanitaze{
     // on registering
     public static sanitazeUser(userObj: any): any | null {
         const { value, error } = Sanitaze.userSchema.validate(userObj)
+        if (error) {
+            return error.details[0].message;
+        } else {
+            return null;
+          }
+    }
+    public static sanitazePassword(passwordObj: any): any | null {
+        const { value, error } = Sanitaze.passwordSchema.validate(passwordObj)
+        if (error) {
+            return error.details[0].message;
+        } else {
+            return null;
+          }
+    }
+
+    public static sanitazeUserChange(userObj: any): any | null {
+        const { value, error } = Sanitaze.changeUserSchema.validate(userObj)
         if (error) {
             return error.details[0].message;
         } else {

@@ -31,37 +31,36 @@ import {runScenario } from './Test/setUpDb'
 
 createServer(async (req: IncomingMessage, res: ServerResponse) => {
     
-    res.setHeader('Access-Control-Allow-Origin', `${process.env.ORIGIN}`);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization');
+    try {
+        res.setHeader('Access-Control-Allow-Origin', `${process.env.ORIGIN}`);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Headers', 'Authorization');
 
-    const METHOD = req.method;
-    if (!req.url) {
-        res.writeHead(403, {'Content-Type': 'text/plain'});
-        return res.end('No url specified in request');
-    }
-    const parsedUrl = url.parse(req.url);
-    const xForwardedFor = req.headers['x-forwarded-for'];
-    // console.log('ipaddress: ' + xForwardedFor)
-    const URL = parsedUrl.pathname;
-    console.log(URL)
-    console.log(URL?.substring(0,10))
-
-    if (METHOD === 'POST') {
-        const contentLength = req.headers['content-length']
-        const valid_size = validateHeaderContentSize(contentLength)
-        if (!valid_size) {
-            res.writeHead(404,{'Content-Type': 'text/plain'})
-            return res.end('provided body is too long')
+        const METHOD = req.method;
+    
+        if (!req.url) {
+            res.writeHead(403, { 'Content-Type': 'text/plain' });
+            return res.end('No url specified in request');
         }
-        try {
-            const body = await getBody(req)
+
+        const URL = url.parse(req.url).pathname;
+        const xForwardedFor = req.headers['x-forwarded-for'];
+        // console.log('ipaddress: ' + xForwardedFor)
+        console.log(URL)
+
+        if (METHOD === 'POST') {
+    
+            validateHeaderContentSize(req.headers['content-length']);
+            
+            const body = await getBody(req);
             if (!body) {
-                res.writeHead(403, { 'Content-Type': 'text/plain' })
-                console.log('no body provided')
-                return res.end('No body provided')
+                throw new Error("Body não consta na requisição.");
             } else {
+
                 if (URL === '/createorder') POST.createOrder(req, res, body);
+                else if (URL === '/account/change') POST.changeInfo(req, res, body);
+                else if (URL === '/account/delete') POST.deleteAccount(req, res, body);
+                    
                 else if (URL === '/makeappointment') POST.makeAppointment(req, res, body);
                 else if (URL === '/account/register/ONG') POST.registerOng(req, res, body);
                 else if (URL === '/account/register/user') POST.registerUser(req, res, body);
@@ -72,97 +71,88 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
                     
                 else if (URL === '/getMyLikesOngInfo') POST.getOngsInfoBasedOnIdsForLikes(req, res, body);
                     
-                else if (URL === '/testpost') {
-                    POST.testpost(req, res);
-                }
                 else {
-                    console.log('route not found')
-                    res.writeHead(405, {'Content-Type': 'text/plain'});
-                    return res.end('Route does not exist'); //TODO: 404 ADD PAGE
+                    throw new Error("Rota não existe.");
                 }
+                
   
                 // else if (URL === '/donation/requestdonation') POST.requestDonation(req,res, body)
                 // else if (URL === '/donation/donate') POST.donate(req,res, body)
             }
-        } catch (err) {
-            console.log('catching' + err)
-            res.writeHead(403, {'Content-Type': 'text/plain'});
-            return res.end('no body provided or bad formated');
+        
         }
-    }
 
 
-    else if (METHOD === 'GET') {
-        // const body = await getBody(req)
-        // if (body) {
-        //     res.writeHead(403, {'Content-Type': 'text/plain'});
-        //     return res.end('No need to specify data in the body');
-        // }
+        else if (METHOD === 'GET') {
 
-        
-        
-        if (URL === '/getFive') GET.getDonationsPack(req.url, res) // donations
-        else if (URL === '/get/favorites') GET.getFavorites(req, res)
-        else if (URL === '/testget') GET.testget(req, res)
-        // else if (URL === '/oauth') GET.loginOAuth(req,res)
-        // else if (URL === '/account/login/oauth/oauth2callback') GET.OAuthCallBack(req,res)
-        else if (URL === '/account/register/authentication/mfa') GET.registerValidation(req.url, res)
-        else if (URL === '/profileinfo') GET.profile(req, res)
-        // else if (URL === '/favorites') GET.addFavorite(req,res)
+
+            if (URL === '/getFive') GET.getDonationsPack(req.url, res) // donations
+            else if (URL === '/get/favorites') GET.getFavorites(req, res)
+            else if (URL === '/testget') GET.testget(req, res)
+            // else if (URL === '/oauth') GET.loginOAuth(req,res)
+            // else if (URL === '/account/login/oauth/oauth2callback') GET.OAuthCallBack(req,res)
             
-        // my profile info
-        else if (URL === '/getMyInfo') GET.getMyInfo(req, res)
+            else if (URL === '/mfa') GET.registerValidation(req.url, res)
+            else if (URL === '/profileinfo') GET.profile(req, res)
 
-        //Ongs
-        else if (URL === '/gettenongs') GET.getOngsPack(req.url, res)
-        
-        // Orders
-        else if (URL === '/getordersfrom') GET.getOrdersFromAnOng(req.url, res)
-        else if (URL === '/getactiveordersfrom') GET.getActiveOrdersFromAnOng(req.url, res)
-        else if (URL === '/getorderandtime') GET.getSingleOrderAndOngTime(req, res)
-        else if (URL === '/gettenorders') GET.getOrdersPack(req.url, res)
-        else if (URL === '/myorders') GET.getMyOrders(req, res)
-        else if (URL === '/myactiveorders') GET.getMyActiveOrders(req, res)
-        else if (URL === '/gettwolastorders') GET.retrieveLastTwoOrders(res)
-        
-        // Appointments
-        else if (URL === '/myappointments') GET.getMyAppointments(req, res)
-        else if (URL === '/myactiveappointments') GET.getMyActiveAppointments(req, res)
-        else if (URL === '/delete/myappointment') GET.deleteMyAppointment(req, res)
-        else if (URL === '/getAppointmentsFromMyOrder') GET.getAppointmentsFromMyOrder(req, res)
             
-        // Likes
-        else if (URL === '/delete/favorites') GET.deleteFavorite(req,res)
-        else if (URL === '/like') GET.likeOrder(req,res)
-        else if (URL === '/unlike') GET.unlikeOrder(req, res)
-        else if (URL === '/mylikedposts') GET.getMyLikedPosts(req, res)
-        else if (URL === '/mylikes') GET.getMyLikes(req, res)
-        else if (URL === '/mostlikedongs') GET.getMostLikedOngs(req, res)
+            // my profile info
+            else if (URL === '/getMyInfo') GET.getMyInfo(req, res)
+
+            //Ongs
+            else if (URL === '/gettenongs') GET.getOngsPack(req.url, res)
+        
+            // Orders
+            else if (URL === '/getordersfrom') GET.getOrdersFromAnOng(req.url, res)
+            else if (URL === '/getactiveordersfrom') GET.getActiveOrdersFromAnOng(req.url, res)
+            else if (URL === '/getorderandtime') GET.getSingleOrderAndOngTime(req, res)
+            else if (URL === '/gettenorders') GET.getOrdersPack(req.url, res)
+            else if (URL === '/myorders') GET.getMyOrders(req, res)
+            else if (URL === '/myactiveorders') GET.getMyActiveOrders(req, res)
+            else if (URL === '/gettwolastorders') GET.retrieveLastTwoOrders(res)
+        
+            // Appointments
+            else if (URL === '/myappointments') GET.getMyAppointments(req, res)
+            else if (URL === '/myactiveappointments') GET.getMyActiveAppointments(req, res)
+            else if (URL === '/delete/myappointment') GET.deleteMyAppointment(req, res)
+            else if (URL === '/getAppointmentsFromMyOrder') GET.getAppointmentsFromMyOrder(req, res)
+            
+            // Likes
+            else if (URL === '/delete/favorites') GET.deleteFavorite(req, res)
+            else if (URL === '/like') GET.likeOrder(req, res)
+            else if (URL === '/unlike') GET.unlikeOrder(req, res)
+            else if (URL === '/mylikedposts') GET.getMyLikedPosts(req, res)
+            else if (URL === '/mylikes') GET.getMyLikes(req, res)
+            else if (URL === '/mostlikedongs') GET.getMostLikedOngs(req, res)
             
             
-        else if (URL === '/ongs') GET.getOng(req, res) // public
+            else if (URL === '/ongs') GET.getOng(req, res) // public
         
 
 
-        else if (URL === '/getFiveUsers') GET.getDonationsPack(req.url, res) // donations
-        else if (URL === '/userswhodonatedtospecificorder') GET.userswhodonatedtospecificorder(req, res)
+            else if (URL === '/getFiveUsers') GET.getDonationsPack(req.url, res) // donations
+            else if (URL === '/userswhodonatedtospecificorder') GET.userswhodonatedtospecificorder(req, res)
        
-        // my donations
-        else if (URL === '/confirmdonation') GET.confirmDonation(req, res);
-        else if (URL === '/getmydonations') GET.getmydonations(req, res);
+            // my donations
+            else if (URL === '/confirmdonation') GET.confirmDonation(req, res);
+            else if (URL === '/getmydonations') GET.getmydonations(req, res);
      
-        // else if (URL === '/mydonations') GET.myDonations(req, res);
-        else if (URL === '/generatePDF') GET.getMyPdf(req, res)
-        else if (URL?.substring(0, 11) === '/filesystem' || URL?.substring(0, 12) === '/filesystem/') GET.fileSystem(req, res)
+            // else if (URL === '/mydonations') GET.myDonations(req, res);
+            else if (URL === '/generatePDF') GET.getMyPdf(req, res)
+            else if (URL?.substring(0, 11) === '/filesystem' || URL?.substring(0, 12) === '/filesystem/') GET.fileSystem(req, res)
         
        
-        else {
-            console.log('route not found')
-            res.writeHead(403, {'Content-Type': 'text/plain'});
-            return res.end('Route does not exist'); //TODO: 404 ADD PAGE
+            else {
+                throw new Error("Rota não existe.");
+            }
         }
-        
-    }
+
+    } catch (err) {
+        console.log('running catch block' + err)
+            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            return res.end(`Erro: ${err}`);
+        }
+    
 
     // res.end();
     
@@ -189,15 +179,10 @@ async function getBody(req: IncomingMessage) {
     })
 }
 
-function validateHeaderContentSize(contentLength?: string): boolean {
-    try {
-        if (!contentLength) return false;
-        if (Number(contentLength) < MAX_REQUEST_SIZE) return true;
-        return false;
-    } catch (err) {
-        console.log('err measuring body size' + err)
-        return false;
-    }
+function validateHeaderContentSize(contentLength?: string) {
+    if (!contentLength) throw new Error("Tamanho do Body não suportado.");
+    if (Number(contentLength) < MAX_REQUEST_SIZE) return true;
+    throw new Error("Tamanho do Body não suportado.");
 }
 
 
