@@ -569,7 +569,8 @@ export async function insertOrders(): Promise<void> {
             items: i2, 
             donated: d2,
           expires_in: 'threemonths',
-          created_at: MyDate.getCurrentDateAndTime(),
+            created_at: MyDate.getCurrentDateAndTime(),
+            over: false,
           owner: ong_names[random].id // random owner
       };
   

@@ -82,11 +82,20 @@ async findOneUser(data_object: any): Promise<any | null> {
   
 async updateOneUser(id: string, updateObj: any): Promise<boolean | null> {
   try {
-    console.log(updateObj)
+
      await this.user_collection?.updateOne({_id: new ObjectId(id)}, { $set: updateObj });
     return true;
   } catch (err) {
     console.log('Error updating user document:', err);
+    return null
+  }
+}
+async updateOneOng(id: string, updateObj: any): Promise<boolean | null> {
+  try {
+     await this.ong_collection?.updateOne({_id: new ObjectId(id)}, { $set: updateObj });
+    return true;
+  } catch (err) {
+    console.log('Error updating ong document:', err);
     return null
   }
 }
@@ -574,7 +583,9 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
 
   async retrieveLastTwoOrders(): Promise<any[] | null> {
     try {
-    const docs = await this.order_collection?.find().sort({ _id: -1 }).limit(3).toArray()
+    const query = { over: false };
+    const options: any = { sort: { _id: -1 }, limit: 3 };
+    const docs = await this.order_collection?.find(query, options).limit(3).toArray()
     if (!docs || docs?.length === 0) return null;
     return docs;
   } catch (err) {
@@ -751,6 +762,20 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
       return null
     }
   }
+  async getPdf(pdf: any): Promise<any | null> {
+    try {
+      return await this.pdf_collection?.findOne(pdf);
+    } catch (err) {
+      return null
+    }
+  }
+  async getPdfById(id: string): Promise<any | null> {
+    try {
+      return await this.pdf_collection?.findOne({_id: new ObjectId(id)});
+    } catch (err) {
+      return null
+    }
+  }
 
   async viewAppointments(ids: string[], user_id: string): Promise<boolean> {
     try {
@@ -767,10 +792,13 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
       return false;
     }
   }
-  async updateOrderBasedOnAppointmentConfirmation2(appointment_id: string, appointment_items: number[], ong_id: string, order_parent_id: string, current_date: string): Promise<boolean | null> {
+  async updateOrderBasedOnAppointmentConfirmation2(appointment_id: string, appointment_items: number[], ong_id: string, order_parent_id: string, user_parent_id: string  ,current_date: string): Promise<boolean | null> {
         const session = await this.client.startSession();
       await session.startTransaction();
 
+    
+
+      await this.pdf_collection?.insertOne({ appointment_parent_id: appointment_id, user_parent_id });
       const appointmentQuery = { _id: new ObjectId(appointment_id), ong_parent_id: new ObjectId(ong_id) };
       const appointmentUpdate = { $set: { confirmed: true, viewed: false, confirmed_at: current_date } };
 
@@ -842,15 +870,20 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
       }
   }
   
-  async updateOrderBasedOnAppointmentConfirmation(appointment_id: string, appointment_items: number[], ong_id: string, order_parent_id: string, current_date: string): Promise<boolean | null> { 
+  async updateOrderBasedOnAppointmentConfirmation(appointment_id: string, appointment_items: number[], ong_id: string, order_parent_id: string, user_parent_id: string, current_date: string): Promise<any | null> { 
 
     try {
       //max nao pode ser maior que expectation
       const session = await this.client.startSession()
       await session.startTransaction();
 
+      const res = await this.pdf_collection?.insertOne({
+        appointment_parent_id: new ObjectId(appointment_id),
+        user_parent_id: new ObjectId(user_parent_id)
+      });
+
       const appointmentQuery = { _id: new ObjectId(appointment_id), ong_parent_id: new ObjectId(ong_id) }
-      const appointmentUpdate = { $set: { confirmed: true, viewed: false, confirmed_at: current_date } }
+      const appointmentUpdate = { $set: { confirmed: true, viewed: false, confirmed_at: current_date, pdf_id: res?.insertedId } }
 
       const updateWhereOrder = { _id: new ObjectId(order_parent_id) }
       const setOrder = {
@@ -902,7 +935,7 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
 
         await session.commitTransaction();
         await session.endSession()
-        return true;
+        return res?.insertedId;
       } catch (err) {
         await session.abortTransaction();
         console.log('Transaction aborted');
@@ -913,6 +946,15 @@ async findOneOngOrUserWhereOR(data_object: any): Promise<any | null> {
       return null;
     }
   }
+
+  async getMyPDFS(user_id: string): Promise<any[] | null> {
+    try {
+      return await this.pdf_collection?.find({user_parent_id: new ObjectId(user_id)}).toArray() as any[];
+    } catch (err) {
+      console.log('Error inserting document:', err);
+      return null;
+    }
+  }
   
   
 async findAppointmentByUserIDAndOrderID(user_parent_id: string, order_parent_id: string): Promise<OutputtedAppointment | null> {
@@ -920,6 +962,19 @@ async findAppointmentByUserIDAndOrderID(user_parent_id: string, order_parent_id:
       return await this.appointment_collection?.findOne({
         user_parent_id: new ObjectId(user_parent_id),
         order_parent_id: new ObjectId(order_parent_id),
+      }) as OutputtedAppointment;
+    } catch (err) {
+      console.log('Error inserting document:', err);
+      return null;
+    }
+}
+  
+async findActiveAppointmentByUserIDAndOrderID(user_parent_id: string, order_parent_id: string): Promise<OutputtedAppointment | null> {
+    try {
+      return await this.appointment_collection?.findOne({
+        user_parent_id: new ObjectId(user_parent_id),
+        order_parent_id: new ObjectId(order_parent_id),
+        confirmed: false
       }) as OutputtedAppointment;
     } catch (err) {
       console.log('Error inserting document:', err);
@@ -938,10 +993,7 @@ async findAppointmentByUserIDAndOrderID(user_parent_id: string, order_parent_id:
 }
   async findAppointmentsFromUserId(user_id: string): Promise<OutputtedAppointment[] | null> {
     try {
-      const d = await this.appointment_collection?.find({ user_parent_id: new ObjectId(user_id) }).toArray() as OutputtedAppointment[];  
-      console.log('d')
-      console.log(d)
-      return d
+      return await this.appointment_collection?.find({ user_parent_id: new ObjectId(user_id) }).toArray() as OutputtedAppointment[];  
     } catch (err) {
       console.log(err)
       return null;

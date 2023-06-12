@@ -66,26 +66,54 @@ const changeInfo = async (req: IncomingMessage, res: ServerResponse, body: any) 
       return res.end('Senhas não são iguais.')
     }
 
-    const found = await mongo.findOneUserById(decoded.id)
-    if (!found) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      return res.end('Conta não encontrada.')
-    }
 
-    const updateObject: any = {};
-    if (body.name) {
-      updateObject.name = body.name;
+    if (decoded.type === 'user') {
+      const found = await mongo.findOneUserById(decoded.id)
+      if (!found) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Conta não encontrada.')
+      }
+  
+      const updateObject: any = {};
+      if (body.name) {
+        updateObject.name = body.name;
+      }
+      if (body.password) {
+        updateObject.password = body.password;
+      }
+      
+      
+      const updated = await mongo.updateOneUser(decoded.id, updateObject)
+      if (updated) {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        return res.end()
+      } 
+
+      
+    } else if (decoded.type === 'ong') {
+
+      const found = await mongo.findOneOngById(decoded.id)
+      if (!found) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Conta não encontrada.')
+      }
+  
+      const updateObject: any = {};
+      if (body.name) {
+        updateObject.name = body.name;
+      }
+      if (body.password) {
+        updateObject.password = body.password;
+      }
+      
+      
+      const updated = await mongo.updateOneOng(decoded.id, updateObject)
+      if (updated) {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        return res.end()
+      } 
+      
     }
-    if (body.password) {
-      updateObject.password = body.password;
-    }
-    
-    
-    const updated = await mongo.updateOneUser(decoded.id, updateObject)
-    if (updated) {
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      return res.end()
-    } 
 
     res.writeHead(500, { 'Content-Type': 'text/plain' });
     return res.end('Erro inesperado')
@@ -240,6 +268,7 @@ const getOngsInfoBasedOnIdsForLikes = async (req: IncomingMessage, res: ServerRe
 const ipCounts = new Map();
 
 function protectionAgainstEmailSpam(ip: string): boolean{
+  console.log(ip)
   if (ipCounts.has(ip)) {
     const count = ipCounts.get(ip);
     
@@ -265,13 +294,15 @@ const registerUser = async (req: IncomingMessage, res: ServerResponse, body: any
     return res.end('Senhas não são iguais.')
   }
 
-  const userFound = await mongo.findOneOngOrUserByEmail(body.email);
+  const userFound = await mongo.findOneOngOrUserByEmail(body.email.toLowerCase());
   if (userFound) {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     return res.end('User already exists')
   }
 
   const path = GenerateLinkCode.generatePath()
+  body.email = body.email.toLowerCase()
+  body.name = body.name.toLowerCase()
   const saved = await redis.storeVerification(path, { ...body, type: 'user', xp: 0 });
   if (!saved) {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -284,7 +315,7 @@ const registerUser = async (req: IncomingMessage, res: ServerResponse, body: any
     return res.end('IP não consta na requisicão')
   }
   const isSpammed = protectionAgainstEmailSpam(ipAddress);
-  if (isSpammed) {
+  if (!isSpammed) {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     return res.end('Aguarde um pouco até que voce possa receber outro Email')
   }
@@ -295,7 +326,7 @@ const registerUser = async (req: IncomingMessage, res: ServerResponse, body: any
     return res.end('Erro inesperado ao enviar email de confirmação')
   }
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  return res.end(`We will sent an email with a verification link \n ${path}`) // TODO: Sent an email
+  return res.end() // TODO: Sent an email
 };
 
 
@@ -311,27 +342,70 @@ const registerOng = async (req: IncomingMessage, res: ServerResponse, body: any)
     return res.end('Senhas não correspondem')
   }
 
-  const UserOrOngFound = await mongo.findOneOngOrUserWhereOR(body);
-  if (UserOrOngFound) {
+  // 00:00-00:00
+  let err = false;
+  try {
+    for (const key in body.working_time) {
+      const first_time = body.working_time[key].split('-')[0]
+      const second_time = body.working_time[key].split('-')[1]
+      const first_hour = Number(first_time.split(':')[0])
+    const second_hour = Number(second_time.split(':')[0])
+    if (first_hour > second_hour) {
+      err = true;
+      break;
+    } else if (first_hour === second_hour) { //check minutes
+      const first_minute = Number(first_time.split(':')[1])
+      const second_minute = Number(second_time.split(':')[1])
+      if (first_minute > second_minute) {
+        err = true;
+        break;
+      }
+    }
+  }
+  } catch (er) {
+    err = true;
+  }
+
+  if (err) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('Datas de Abertura da Instituição não podem ser maiores que a de fechamento.')
+  }
+
+  const entityFound = await mongo.findOneOngOrUserByEmail(body.email.toLowerCase());
+  if (entityFound) {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     return res.end('Email already exists')
   }
 
-  const verification: any | null = await redis.getVerificationBasedOnEmail(body.email)
-  if (!verification) {
-    
-    const path = GenerateLinkCode.generatePath()
-    const saved = await redis.storeVerification(path, { ...body, type: 'ong', xp: 0 })
-    if (!saved) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      return res.end('Error while saving your log')
-    }
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    console.log(`We will sent an email with a verification link \n ${path}`)
-    return res.end(`We will sent an email with a verification link \n ${path}`) // TODO: Sent an email
-  } 
-  res.writeHead(404, { 'Content-Type': 'text/plain' });
-  return res.end('You ordered emails two times already... wait 90 seconds')
+  const path = GenerateLinkCode.generatePath()
+  body.email = body.email.toLowerCase()
+  body.name = body.name.toLowerCase()
+
+  const saved = await redis.storeVerification(path, { ...body, type: 'ong', xp: 0 });
+  if (!saved) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('Error while saving your log')
+  }
+
+  const ipAddress = req.connection.remoteAddress;
+  if (!ipAddress) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('IP não consta na requisicão')
+  }
+
+  const isSpammed = protectionAgainstEmailSpam(ipAddress);
+  if (!isSpammed) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('Aguarde um pouco até que voce possa receber outro Email')
+  }
+
+  const sent = await sendMail({ to: body.email, link: path})
+  if (!sent) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('Erro inesperado ao enviar email de confirmação')
+  }
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  return res.end() // TODO: Sent an email
 };
 
 
@@ -442,7 +516,9 @@ const makeAppointment = async (req: IncomingMessage, res: ServerResponse, body: 
         return res.end('Error Sanitazing: ' + isError)
     }
     
-      const appointment = await appointmentCache.getAppointmentByUserIDAndOrderID(decoded.id, body.order_parent_id)
+      const appointment = await mongo.findActiveAppointmentByUserIDAndOrderID(decoded.id, body.order_parent_id)
+      console.log('appointmentfound')
+      console.log(appointment)
       if (appointment && !appointment?.confirmed) {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         return res.end('You have done an appointment to this order already')

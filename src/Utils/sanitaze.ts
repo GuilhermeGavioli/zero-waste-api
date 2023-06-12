@@ -27,8 +27,8 @@ export class Sanitaze{
 
     private static orderSchema2 = Joi.object({
         // ong_id = 
-        name: Joi.string().regex(/^[a-zA-Z0-9ç ]*$/).min(4).max(50).required(),
-        description: Joi.string().regex(/^[a-zA-Z,-.ç! ]*$/).min(85).max(400).required(), // new
+        name: Joi.string().regex(/^[\p{L}\p{N}!ç., ]*$/u).min(4).max(50).required(),
+        description: Joi.string().regex(/^[\p{L}\p{N}!ç., ]*$/u).min(45).max(400).required(), // new
         // items: Joi.object({
         //     conserva: Joi.number().integer().min(0).max(150).required(),
         //     brinquedo: Joi.number().integer().min(0).max(150).required(),
@@ -39,19 +39,19 @@ export class Sanitaze{
         //     oleo: Joi.number().integer().min(0).max(150).required(),
         // }).length(7).required(),
         items: Joi.array().items((Joi.number().integer().min(0).max(200))).length(7).required(),
-        expires_in: Joi.string().valid('threedays', 'oneweek', 'twoweeks', 'threeweeks', 'onemonth', 'twomonths', 'threemonths').required(),
+
     });
     
     // TODO: validate email special characters and trim spaces and allow special characters in password
     private static ONGschema = Joi.object({
-        name: Joi.string().regex(/^[a-zA-Z0-9 ]*$/).min(3).max(40).required(),
+        name: Joi.string().regex(/^[\p{L}\p{N} ]*$/u).min(3).max(40).required(),
         // phone: Joi.string().length(11).regex(/^[0-9]*$/).required(), // NNNNNNNNN NNNNN-NNNN
         email: Joi.string().email().min(6).max(113).required(),
         // cnpj: Joi.string().pattern(/^\d{8}0001\d{2}$/).required(), // XXXXXXXX0001XX
-        description: Joi.string().regex(/^[a-zA-Z,-.! ]*$/).min(85).max(400).required(),
+        description: Joi.string().regex(/^[\p{L}\p{N}!ç., ]*$/u).min(45).max(400).required(),
             
-        password: Joi.string().regex(/^[a-zA-Z0-9 ]*$/).min(8).max(50).required(),
-        confirm_password: Joi.string().regex(/^[a-zA-Z0-9 ]*$/).min(8).max(50).required(),
+        password: Joi.string().regex(/^[\p{L}\p{N}!@#$%&*,.ç]*$/u).min(8).max(50).required(),
+        confirm_password: Joi.string().regex(/^[\p{L}\p{N}!@#$%&*,.ç]*$/u).min(8).max(50).required(),
         address: Joi.string().regex(/^[a-zA-Z,-.! ]*$/).min(5).max(80).required(),
         address_number: Joi.number().integer().min(1).max(100000).required(),
         address_state: Joi.string().valid('SP', 'AC', 'DF', 'ES', 'GO', 'SC'),

@@ -59,81 +59,7 @@ const getMyInfo = async (req: IncomingMessage, res: ServerResponse) => {
 
 
  
-const fileSystem = async (req: IncomingMessage, res: ServerResponse) => { 
-    if (!req.url) return
-    const pdfParam = req.url.slice('/filesystem/'.length);
-    console.log(pdfParam)
-    if (pdfParam) {
-        // Set the file path to the generated PDF file
 
-        const filePath = path.join(__dirname, `../../filesystem/receipt-${pdfParam}.pdf`);
-        console.log(filePath)
-        // Read the PDF file and send it in the response
-        fs.readFile(filePath, (err, data) => {
-            if (err) {
-                res.statusCode = 404;
-                console.log(err)
-                res.end('PDF not found');
-                return;
-            }
-    
-            res.setHeader('Content-Type', 'application/pdf');
-            res.end(data);
-        })
-    }
-}
-
-const getMyPdf = async (req: IncomingMessage, res: ServerResponse) => {
-   
-    AccessTokenVerification(req, res, async (decoded: any) => {
-
-        const req_url: any = req.url
-        const parsedUrl = url.parse(req_url);
-    let appointment_id: any;
-    if (parsedUrl.query) {
-        const queryParams = querystring.parse(parsedUrl.query);
-        appointment_id = queryParams.appointment_id;
-    }
-    
-        
-    const found: OutputtedAppointment | null = await mongo.findOneAppointmentById(appointment_id)
-    if (!found) return res.end('not found');
-        if (!found.confirmed) return res.end('not confirmed');
-    
-    if (found.user_parent_id.toString() !== decoded.id) return res.end('do not belong');
-    
-    const inserted = await mongo.insertPDF({appointment_parent_id: appointment_id})
-    
-    if (!inserted) return res.end('not ok');
-
-        const generated = await generatePDF(found, inserted.toString())
-        if (generated) {
-            res.writeHead(200);
-            res.end('ok')
-        } else {
-
-            res.end('not ok')
-        }
-
-    // Check if the file exists
-    // if (!fs.existsSync(filePath)) {
-    //   return res.status(404).send('File not found');
-    // }
-  
-    // // Read the file and serve it as a response
-    // fs.readFile(filePath, (err, data) => {
-    //   if (err) {
-    //     console.error('Error reading file:', err);
-    //     return res.status(500).send('Internal Server Error');
-    // }
-    
-    // res.setHeader('Content-Type', 'application/pdf');
-    // res.setHeader('Content-Disposition', `inline; filename=${filename}`);
-    // res.send(data);
-    // });
-    })
-
-}
 
 
 
@@ -325,11 +251,21 @@ const getDonationsPack = async (request_url: string, res: ServerResponse) => {
 
 const getMyLikes = async (req: IncomingMessage, res: ServerResponse) => { 
     AccessTokenVerification(req, res, async (decoded: any) => { 
-        console.log('here')
         const my_likes = await redis.getMyLikes(decoded.id)
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        console.log(my_likes)
         return res.end(JSON.stringify(my_likes));
+    })
+}
+
+const getMyOngLikes = async (req: IncomingMessage, res: ServerResponse) => { 
+    AccessTokenVerification(req, res, async (decoded: any) => { 
+        if (decoded.type !== 'ong') {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            return res.end('Essa conta não pertence à uma Instituição')
+        }
+        const my_ong_likes = await redis.getMyOngLikes(decoded.id)
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(my_ong_likes.toString());
     })
 }
 
@@ -615,6 +551,67 @@ const getAppointmentsFromMyOrder = async (req: IncomingMessage, res: ServerRespo
     })
 }
 
+
+const getMyPDFS = async (req: IncomingMessage, res: ServerResponse) => {
+    AccessTokenVerification(req, res, async (decoded: any) => { 
+        const myPdfs = await mongo.getMyPDFS(decoded.id)
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(myPdfs)) // red
+    })
+
+}
+const getSinglePDF = async (req: IncomingMessage, res: ServerResponse) => {
+    AccessTokenVerification(req, res, async (decoded: any) => {
+
+        //validate if belongs to user
+
+       
+     
+        const req_url: any = req.url
+        const parsedUrl = url.parse(req_url);
+        let pdf_id: any;
+        if (parsedUrl.query) {
+            const queryParams = querystring.parse(parsedUrl.query);
+            pdf_id = queryParams.pdf_id;
+        }
+
+        // if (decoded.type === 'ong') {
+        //     res.writeHead(404, { 'Content-Type': 'application/json' });
+        //         return res.end('Only users can access pdfs / recipts.')
+        // }
+
+        if (!pdf_id) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+                return res.end('No ID provided.')
+        }
+        console.log('pdf_id')
+        console.log(pdf_id)
+
+        const foundPdf = await mongo.getPdfById(pdf_id)
+        console.log(foundPdf)
+        if (foundPdf?._id.toString() !== pdf_id.toString()) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+                return res.end('Do not belong to you')
+        }
+
+        console.log(pdf_id)
+        const filePath = path.join(__dirname, `../../filesystem/receipt-${pdf_id}.pdf`);
+
+        fs.readFile(filePath, (err, data) => {
+            if (err) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                return res.end('Error reading your file, try again latter on.')
+            }
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', 'attachment; filename="file.pdf"');
+            res.statusCode = 200;
+            res.end(data);
+        })
+    })
+
+}
+
 const getMyAppointments = async (req: IncomingMessage, res: ServerResponse) => { 
     AccessTokenVerification(req, res, async (decoded: any) => { 
         const foundAppointments = await appointmentCache.getAppointmentsFromUserId(decoded.id)
@@ -734,6 +731,8 @@ const getOng = async (req: IncomingMessage, res: ServerResponse) => {
     return res.end(JSON.stringify(foundOng))
 }
 
+
+
 const userswhodonatedtospecificorder = async (req: IncomingMessage, res: ServerResponse) => {
     //TODO SANITAZE IT
 
@@ -798,17 +797,21 @@ const userswhodonatedtospecificorder = async (req: IncomingMessage, res: ServerR
         //     return res.end('This appointment does not belong to you')
         //   }
         
-      const updated = await mongo.updateOrderBasedOnAppointmentConfirmation(appointment_id, appointment.items, decoded.id, appointment.order_parent_id.toString(), MyDate.getCurrentDateAndTime())
+        
+      const updated = await mongo.updateOrderBasedOnAppointmentConfirmation(appointment_id, appointment.items, decoded.id, appointment.order_parent_id.toString(), appointment.user_parent_id.toString(), MyDate.getCurrentDateAndTime())
         if (!updated) {
             res.writeHead(404);
             return res.end()
           }
+
+          const generated = await generatePDF(appointment, updated)
+          if (!generated) {
+            res.writeHead(404);
+            return res.end()
+          }
           
-          //update user level cache
-          //update order cache
-          orderCache.updateOrderById(appointment.order_parent_id.toString(), appointment.items)
-          // if it is 100% clear order from ong count
-          // clear user appointment
+
+
             res.writeHead(200);
             return res.end()
     })
@@ -862,11 +865,13 @@ export const GET = {
     getMostLikedOngs,
     getAppointmentsFromMyOrder,
     getmydonations,
-    getMyPdf,
-    getMyInfo,
-    fileSystem,
-    getActiveOrdersFromAnOng
     
+    getMyInfo,
+
+    getActiveOrdersFromAnOng,
+    getMyOngLikes,
+    getMyPDFS,
+    getSinglePDF
 }
 
 
@@ -875,26 +880,7 @@ export const GET = {
 async function generatePDF(found: OutputtedAppointment, inserted: any) {
 
     return new Promise((resolve, reject) => { 
-
-
     const doc = new PDFDocument();
-
-    // Write receipt header
-    
-    // Write donor information
-  
-    // Write donation information
-  
-    // Write receipt footer
-  
-    // Save PDF to a file
-    // const filename = `agendamento-${found._id}.pdf`;
-    // const filePath = path.resolve(`../${filename}`);
-    // const file_path = path.resolve(__dirname, filename)
-    // doc.pipe(fs.createWriteStream(filePath));
-    // doc.end();
-    
-    // Pipe the PDF content to a writable stream
     
     const filePath = path.join(__dirname, `../../filesystem/receipt-${inserted}.pdf`);
  
@@ -926,6 +912,5 @@ async function generatePDF(found: OutputtedAppointment, inserted: any) {
     });
         
     })
-  
-    
 }
+

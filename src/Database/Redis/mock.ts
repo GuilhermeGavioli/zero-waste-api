@@ -225,6 +225,19 @@ export class RedisMock {
             return [];
         }
     }
+    async getMyOngLikes(ong_id: string) { //FROM ORDER ID
+        try {
+            const count = this.likes.reduce((acc, obj) => {
+                if (obj.ong_id === ong_id) {
+                  return acc + 1;
+                }
+                return acc;
+              }, 0);
+            return count;
+        } catch (err) {
+            return 0;
+        }
+    }
 
     // async querySession(sessionId) {
     //     return await this.client.get(sessionId);

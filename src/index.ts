@@ -123,6 +123,7 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
             else if (URL === '/unlike') GET.unlikeOrder(req, res)
             else if (URL === '/mylikedposts') GET.getMyLikedPosts(req, res)
             else if (URL === '/mylikes') GET.getMyLikes(req, res)
+            else if (URL === '/myonglikes') GET.getMyOngLikes(req, res)
             else if (URL === '/mostlikedongs') GET.getMostLikedOngs(req, res)
             
             
@@ -138,8 +139,9 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
             else if (URL === '/getmydonations') GET.getmydonations(req, res);
      
             // else if (URL === '/mydonations') GET.myDonations(req, res);
-            else if (URL === '/generatePDF') GET.getMyPdf(req, res)
-            else if (URL?.substring(0, 11) === '/filesystem' || URL?.substring(0, 12) === '/filesystem/') GET.fileSystem(req, res)
+            else if (URL === '/getMyPDFS') GET.getMyPDFS(req, res)
+            // else if (URL === '/getSinglePDF') GET.getSinglePDF(req, res)
+            else if (URL === '/filesystem') GET.getSinglePDF(req, res)
         
        
             else {
@@ -158,7 +160,7 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
     
 
     
-}).listen(process.env.PORT, () => console.log('Listening'))
+}).listen(process.env.BACKEND_PORT, () => console.log('Listening'))
 
 
 async function getBody(req: IncomingMessage) {
@@ -188,3 +190,21 @@ function validateHeaderContentSize(contentLength?: string) {
 
 
 
+import express from 'express';
+const app = express();
+
+// Serve static files from the 'dist' directory
+app.use(express.static(path.join(__dirname, 'angdist')));
+
+// Handle requests for any route by serving the 'index.html' file
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'angdist', 'index.html'));
+});
+
+// Start the server
+app.listen(process.env.FRONTEND_PORT, () => {
+  console.log(`Backend running on http://localhost:${process.env.FRONTEND_PORT}`);
+});
+
+// docker run --env-file ./.env --restart on-failure -p 4200:4200 -p 3000:3000 -d --name myfull myfullimage
+// DOCKER BUILD -T myfullimage .
