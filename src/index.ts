@@ -65,7 +65,9 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
                 else if (URL === '/account/register/ONG') POST.registerOng(req, res, body);
                 else if (URL === '/account/register/user') POST.registerUser(req, res, body);
                 else if (URL === '/account/login/default') POST.loginZeroWaste(req, res, body);
-                else if (URL === '/account/resetpassword') POST.resetPassword(req, res, body);
+                    
+                else if (URL === '/changepasswordconfirmation') POST.forgetPasswordValidation(req, res, body);
+                // else if (URL === '/account/resetpassword') POST.resetPassword(req, res, body);
                     
                 else if (URL === '/viewDonations') POST.viewDonations(req, res, body);
                     
@@ -97,6 +99,7 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
 
             
             // my profile info
+            else if (URL === '/forgetpassword') GET.forgetPassword(req, res)
             else if (URL === '/getMyInfo') GET.getMyInfo(req, res)
 
             //Ongs
@@ -193,15 +196,14 @@ function validateHeaderContentSize(contentLength?: string) {
 import express from 'express';
 const app = express();
 
-// Serve static files from the 'dist' directory
+
 app.use(express.static(path.join(__dirname, 'angdist')));
 
-// Handle requests for any route by serving the 'index.html' file
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'angdist', 'index.html'));
 });
 
-// Start the server
+
 app.listen(process.env.FRONTEND_PORT, () => {
   console.log(`Backend running on http://localhost:${process.env.FRONTEND_PORT}`);
 });

@@ -67,6 +67,9 @@ export class Sanitaze{
         }).required(),
     })
 
+
+    private static EmailSchema =  Joi.string().email().min(6).max(113).required()
+
     private static appointmentSchema = Joi.object({
         order_parent_id: Joi.string().length(24).required(),
         day: Joi.string().valid('seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom').required(),
@@ -174,6 +177,14 @@ export class Sanitaze{
     // on registering
     public static sanitazeOng(ongObj: any): any | null {
         const { value, error } = Sanitaze.ONGschema.validate(ongObj)
+        if (error) {
+            return error.details[0].message;
+        } else {
+            return null;
+          }
+    }
+    public static sanitazeEmail(email: string): any | null {
+        const { value, error } = Sanitaze.EmailSchema.validate(email)
         if (error) {
             return error.details[0].message;
         } else {

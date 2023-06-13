@@ -282,6 +282,9 @@ function protectionAgainstEmailSpam(ip: string): boolean{
   }
 }
 
+
+
+
 const registerUser = async (req: IncomingMessage, res: ServerResponse, body: any) => {
   const isError = Sanitaze.sanitazeUser(body)
     if (isError) {
@@ -496,10 +499,6 @@ const loginZeroWaste = async (req: IncomingMessage, res: ServerResponse, body: a
   }
 };
 
-const resetPassword = (req: IncomingMessage, res: ServerResponse, body: any) => {
-  res.writeHead(200, 'resetpassword');
-  res.write('resetpassword')
-};
 
 const makeAppointment = async (req: IncomingMessage, res: ServerResponse, body: any) => {
   AccessTokenVerification(req, res, async (decoded: any) => {
@@ -565,32 +564,12 @@ const makeAppointment = async (req: IncomingMessage, res: ServerResponse, body: 
       return res.end('Nenhuma quantidade foi submetida para o agendamento')
     }
 
-    
-      // const adjusted = validateItems(foundOrder.items, foundOrder.donated, body.items)
-      // if (adjusted) {
-      //   res.writeHead(404, { 'Content-Type': 'text/plain' });
-      //   return res.end('The amount you want to contribute with is bigger than the missing for the donation')
-      // }
-
       const foundOng: OutputtedOng | null = await ongCache.getOngById(foundOrder.owner.toString())
       if (!foundOng) {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         return res.end('ONG not found or has been deleted')
       }
-      //nn:nn-nn:nn
-      // const ong_worker_day_time = foundOng.working_time[`${body.day}`].split('-');
 
-      // const open_hour = ong_worker_day_time[0].split(':');
-      // const close_hour = ong_worker_day_time[1].split(':');
-
-      // const appointment_time = body.time.split(':')
-      // const appointment_hour = appointment_time[0]
-    
-      // if (appointment_hour < open_hour || appointment_hour > close_hour) {
-      //   res.writeHead(404, { 'Content-Type': 'text/plain' });
-      //   return res.end('Company work time does not fit in your appointment time or week day')
-      // }
-    
 
 
     const inserted = await appointmentCache.insertAppointment(
@@ -603,23 +582,81 @@ const makeAppointment = async (req: IncomingMessage, res: ServerResponse, body: 
 
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       return res.end('ok')
-    
-
   })
 }
 
-function validateItems(requested: number[], donated: number[], being_donated: number[]) {
-  let adjusted;
-  for (let i = 0; requested.length; i++){
-      const missing: number = requested[i] - donated[i];
-      if (being_donated[i] > missing) {
-        being_donated[i] = missing;
-        adjusted = true;
+
+const forgetPasswordValidation = async (req: IncomingMessage, res: ServerResponse, body: any) => {
+  try {
+    
+    const stringified_code_path = body.code_path.toString()
+
+    const isCodePathError = Sanitaze.sanitazeCodePath(stringified_code_path)
+    if (isCodePathError) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Error Sanitazing: ' + isCodePathError)
+    }
+    const isPasswordError = Sanitaze.sanitazePassword({ password: body.password })
+    if (isPasswordError) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Error Sanitazing: ' + isPasswordError)
+    }
+    
+    if (body.password !== body.confirm_password) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Senhas não coincidem, por favor, tenha certeza de que sao iguais antes de altera-las.')
+    }
+
+       
+    
+    const entity: any | null = await redis.getVerification(stringified_code_path);
+    if (!entity) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Your code might have been expired')
+    }
+    const parsedEntity = JSON.parse(entity)
+
+    if (parsedEntity?.burned) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Your code has been used already')
+    }
+     
+    if (parsedEntity.type === 'user') {
+      const updated = await mongo.updateOneUserPassword(parsedEntity.email, body.password)
+      if (!updated) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Error while updating')
       }
+      redis.burnCodePath(stringified_code_path);
+      res.writeHead(200, { 'Content-Type': 'text/plain' })
+      return res.end()
+
+    } else if (parsedEntity.type === 'ong') {
+
+      const updated = await mongo.updateOneOngPassword(parsedEntity.email, body.password)
+      if (!updated) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Error while updating')
+      }
+      redis.burnCodePath(stringified_code_path);
+      res.writeHead(200, { 'Content-Type': 'text/plain' })
+      return res.end()
+      
+    } else {
+      res.writeHead(500, { 'Content-Type': 'text/plain' })
+      return res.end('bad request')
+    }
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'text/plain' })
+    return res.end('bad request')
   }
-  if (adjusted) return being_donated;
-  return;
 }
+
+          
+         
+
+
+
 
 
 
@@ -628,13 +665,14 @@ export const POST = {
   registerOng,
   registerUser,
   loginZeroWaste,
-  resetPassword,
+  
   // requestDonation,
   createOrder,
   makeAppointment,
   viewDonations,
   getOngsInfoBasedOnIdsForLikes,
   changeInfo,
-  deleteAccount
+  deleteAccount,
+  forgetPasswordValidation
 }
 

@@ -90,6 +90,25 @@ async updateOneUser(id: string, updateObj: any): Promise<boolean | null> {
     return null
   }
 }
+async updateOneUserPassword(email: string, password: string): Promise<boolean | null> {
+  try {
+
+    await this.user_collection?.updateOne({ email }, { $set: { password } });
+    return true;
+  } catch (err) {
+    console.log('Error updating user document:', err);
+    return null
+  }
+}
+async updateOneOngPassword(email: string, password: string): Promise<boolean | null> {
+  try {
+     await this.ong_collection?.updateOne({email}, { $set: { password } });
+    return true;
+  } catch (err) {
+    console.log('Error updating ong document:', err);
+    return null
+  }
+}
 async updateOneOng(id: string, updateObj: any): Promise<boolean | null> {
   try {
      await this.ong_collection?.updateOne({_id: new ObjectId(id)}, { $set: updateObj });

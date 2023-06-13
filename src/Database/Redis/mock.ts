@@ -11,6 +11,7 @@ export class RedisMock {
     private data: any[];
     private favorites: any[];
     private likes: any[];
+    private time_to_mail: number = 60 * 5 
 
     constructor() {
         this.start()
@@ -24,10 +25,11 @@ export class RedisMock {
     }
 
     async storeVerification(code_path: string, entity: any): Promise<any | null> {
-        myCache.set(code_path, JSON.stringify({ ...entity, used: false }), 90);
-        myCache.set(entity.email, JSON.stringify({ time: 0 }), 90); 
+        myCache.set(code_path, JSON.stringify({ ...entity, burned: false }), this.time_to_mail);
+        myCache.set(entity.email, JSON.stringify({ time: 0 }), this.time_to_mail); 
         return true;
     }
+
     
     async getVerificationBasedOnEmail(email: string) {
         return await myCache.get(email)
@@ -46,9 +48,8 @@ export class RedisMock {
         return await myCache.get(code_path);
     }
 
-    async burnCodePath(code_path: string): Promise<any | null> {
-        burnedCodePaths.set(code_path, JSON.stringify({ burned: true }))
-        return true;
+    burnCodePath(code_path: string) {
+        myCache.set(code_path, JSON.stringify({ burned: true }))
     }
 
     async getBurnedCodePath(code_path: string): Promise<any | null> {

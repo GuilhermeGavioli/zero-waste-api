@@ -15,7 +15,9 @@ import { ObjectId } from 'mongodb';
 
 import PDFDocument from 'pdfkit'
 import fs from 'fs'
-import { transformArguments } from '@redis/search/dist/commands/AGGREGATE';
+import { GenerateLinkCode } from '../../Utils/generateLink';
+import { sendForgetPasswordMail, sendMail } from '../../Utils/Mail';
+
 
   
 
@@ -88,6 +90,11 @@ const registerValidation = async (request_url: string, res: ServerResponse) => {
                 return res.end('Your code might have been expired')
             }
             const parsedEntity = JSON.parse(entity)
+
+            if (parsedEntity?.burned) {
+                res.writeHead(404, { 'Content-Type': 'text/plain' });
+                return res.end('Your code have been used already, request another one.')
+            }
             
             if (parsedEntity.type === 'ong') {
                 const found = await mongo.findOneOngWhere({ email: parsedEntity.email })
@@ -101,6 +108,8 @@ const registerValidation = async (request_url: string, res: ServerResponse) => {
                     res.writeHead(404, { 'Content-Type': 'text/plain' });
                     return res.end('Something went wrong 1')
                 }
+
+                redis.burnCodePath(stringified_code_path)
 
                 res.writeHead(200, {'Content-Type': 'text/plain'});
                 return res.end()
@@ -121,6 +130,9 @@ const registerValidation = async (request_url: string, res: ServerResponse) => {
                     res.writeHead(404, { 'Content-Type': 'text/plain' });
                     return res.end('Something went wrong 2 ')
                 }
+
+                redis.burnCodePath(stringified_code_path)
+
                 res.writeHead(200, {'Content-Type': 'text/plain'});
                 return res.end('Welcome, Successfully created!')
              }
@@ -195,6 +207,76 @@ const getActiveOrdersFromAnOng = async (request_url: string, res: ServerResponse
         
     }
 }
+
+
+
+const ipForgetPasswordCounts = new Map();
+function protectionAgainstForgetEmailSpam(ip: string): boolean{
+  if (ipForgetPasswordCounts.has(ip)) {
+    const count = ipForgetPasswordCounts.get(ip);
+    
+    if (count >= 2) return false
+    ipForgetPasswordCounts.set(ip, count + 1);
+    return true;
+
+  } else {
+    ipForgetPasswordCounts.set(ip, 1);
+    return true;
+  }
+}
+const forgetPassword = async (req: IncomingMessage, res: ServerResponse) => {
+   
+    const req_url: any = req.url
+    const parsedUrl = url.parse(req_url);
+    let email: any;
+    if (parsedUrl.query) {
+        const queryParams = querystring.parse(parsedUrl.query);
+        email = queryParams.email;
+    }
+
+    const isError = Sanitaze.sanitazeEmail(email)
+    if (isError) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Error Sanitazing: ' + isError)
+    }
+
+    const entityFound = await mongo.findOneOngOrUserByEmail(email.toLowerCase());
+    if (!entityFound) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end(`Nenhuma conta vinculada ao email: ${email}`)
+    }
+
+    const path = GenerateLinkCode.generatePath()
+    const saved = await redis.storeVerification(path, {email, type: entityFound.type});
+      if (!saved) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Error while saving your log')
+    }
+    
+
+        const ipAddress = req.connection.remoteAddress;
+    if (!ipAddress) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('IP não consta na requisicão')
+    }
+    const isSpammed = protectionAgainstForgetEmailSpam(ipAddress);
+    if (!isSpammed) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Aguarde um pouco até que voce possa receber outro Email')
+    }
+
+    const sent = await sendForgetPasswordMail({ to: email, link: path})
+    if (!sent) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Erro inesperado ao enviar email de confirmação')
+    }
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    return res.end()
+}
+
+
+
+
 
 const getOrdersFromAnOng = async (request_url: string, res: ServerResponse) => {
     const parsedUrl = url.parse(request_url);
@@ -817,16 +899,7 @@ const userswhodonatedtospecificorder = async (req: IncomingMessage, res: ServerR
     })
 }
 
-function validateItems(requested: number[], donated: number[], being_donated: number[]){
-    let err;
-    for (let i = 0; requested.length; i++){
-        const missing: number = requested[i] - donated[i];
-        if (being_donated[i] > missing) {
-            err = 'One or many of the items being donated overflows the requested. Do You want to continue?'
-        }
-    }
-    return err;
-}
+
   
   
 export const GET = {
@@ -871,7 +944,9 @@ export const GET = {
     getActiveOrdersFromAnOng,
     getMyOngLikes,
     getMyPDFS,
-    getSinglePDF
+    getSinglePDF,
+
+    forgetPassword,
 }
 
 
